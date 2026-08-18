@@ -100,6 +100,7 @@ export async function createProperty(input: PropertyInput) {
       region: input.region || undefined,
       businessUnitId: cleanId(input.businessUnitId) ?? undefined,
       landlordId: cleanId(input.landlordId) ?? undefined,
+      ezenPropertyRef: input.ezenPropertyRef || undefined,
     },
   });
 
@@ -121,6 +122,7 @@ export async function updateProperty(id: string, input: PropertyInput) {
       region: input.region || undefined,
       businessUnitId: cleanId(input.businessUnitId),
       landlordId: cleanId(input.landlordId),
+      ezenPropertyRef: input.ezenPropertyRef || null,
     },
   });
 

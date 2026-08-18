@@ -17,6 +17,7 @@ function toPropertyInput(formData: FormData) {
     region: formData.get("region"),
     businessUnitId: formData.get("businessUnitId"),
     landlordId: formData.get("landlordId"),
+    ezenPropertyRef: formData.get("ezenPropertyRef"),
   };
 }
 

@@ -5,6 +5,7 @@ import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
+import { isWorkflowActive } from "@/lib/services/workflow.service";
 import type { TicketInput } from "@/lib/validation/ticket";
 
 const VIEW_PERMS = ["tickets.view_all", "tickets.view_own"];
@@ -286,6 +287,8 @@ export async function addTicketComment(id: string, comment: string, isInternal: 
  * so this is meant to be triggered a few times a day, not on every request.
  */
 export async function checkSlaRisk() {
+  if (!(await isWorkflowActive("ticket.sla_risk_check"))) return 0;
+
   const openTickets = await prisma.ticket.findMany({
     where: { status: { notIn: ["COMPLETED", "CLOSED"] }, dueAt: { not: null }, assignedToId: { not: null } },
   });

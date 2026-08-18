@@ -18,6 +18,8 @@ import {
   Bell,
   MessageSquare,
   BarChart3,
+  Plug,
+  Workflow as WorkflowIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -102,6 +104,8 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Departments", href: "/admin/departments", icon: Building2, permission: "departments.manage" },
       { label: "Business Units", href: "/admin/business-units", icon: Landmark, permission: "departments.manage" },
       { label: "SLA Policies", href: "/admin/sla", icon: Timer, permission: "settings.manage" },
+      { label: "Workflow Automations", href: "/admin/workflows", icon: WorkflowIcon, permission: "settings.manage" },
+      { label: "Integrations", href: "/admin/integrations", icon: Plug, permission: "integrations.manage" },
       { label: "Audit Log", href: "/admin/audit-log", icon: ClipboardList, permission: "audit_logs.view" },
     ],
   },

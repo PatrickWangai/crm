@@ -4,6 +4,7 @@ import type { LeaseStatus } from "@prisma/client";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
+import { isWorkflowActive } from "@/lib/services/workflow.service";
 import type { LeaseInput } from "@/lib/validation/lease";
 
 function cleanId(value?: string | null): string | null {
@@ -165,6 +166,8 @@ export async function updateLeaseStatus(id: string, status: LeaseStatus) {
 
 /** Flags leases expiring within the given number of days as PENDING_RENEWAL and notifies property managers. Intended for a scheduled job; safe to call repeatedly. */
 export async function flagExpiringLeases(withinDays = 30) {
+  if (!(await isWorkflowActive("lease.renewal_check"))) return 0;
+
   const cutoff = new Date(Date.now() + withinDays * 24 * 60 * 60 * 1000);
   const expiring = await prisma.lease.findMany({
     where: { status: "ACTIVE", endDate: { lte: cutoff }, renewalReminderSentAt: null },

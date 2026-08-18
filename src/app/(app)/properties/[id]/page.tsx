@@ -76,6 +76,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 region: property.region,
                 businessUnitId: property.businessUnitId,
                 landlordId: property.landlordId,
+                ezenPropertyRef: property.ezenPropertyRef,
               }}
             />
           )}
@@ -101,6 +102,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               <InfoRow icon={MapPin} label="City" value={property.city ?? "—"} />
               <InfoRow icon={MapPin} label="Region" value={property.region ?? "—"} />
               <InfoRow icon={Building2} label="Business unit" value={property.businessUnit?.name ?? "—"} />
+              <InfoRow icon={Building2} label="Ezen system reference" value={property.ezenPropertyRef ?? "Not linked"} />
             </CardContent>
           </Card>
           <Card>

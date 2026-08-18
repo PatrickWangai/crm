@@ -3,6 +3,8 @@ import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getLeadDetail } from "@/lib/services/lead.service";
 import { listBusinessUnitOptions, listDepartmentOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { isAiAssistantEnabled, suggestNextActionForLead } from "@/lib/services/ai.service";
+import { AiSuggestionCard } from "@/components/leads/ai-suggestion-card";
 import { logLeadCommunicationAction, uploadLeadDocumentAction, deleteLeadDocumentAction, createLeadTaskAction } from "@/app/(app)/leads/actions";
 import { RelatedTaskList } from "@/components/tasks/related-task-list";
 import { PageHeader } from "@/components/layout/page-header";
@@ -75,12 +77,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
   let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
+  let aiEnabled: boolean;
   try {
-    [lead, businessUnits, staff, departments] = await Promise.all([
+    [lead, businessUnits, staff, departments, aiEnabled] = await Promise.all([
       getLeadDetail(id),
       listBusinessUnitOptions(),
       listUserOptions(),
       listDepartmentOptions(),
+      isAiAssistantEnabled(),
     ]);
   } catch (err) {
     if (err instanceof ForbiddenError) redirect("/forbidden");
@@ -97,6 +101,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const canDeleteDocs = hasPermission(user, "documents.delete");
   const canCreateTask = hasPermission(user, "tasks.create");
   const canClaim = !lead.assignedToId && (hasPermission(user, "leads.create") || hasPermission(user, "leads.view_own"));
+  const aiSuggestion = aiEnabled ? suggestNextActionForLead(lead) : null;
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -212,6 +217,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <p className="text-sm text-muted-foreground">{lead.requirements || "No requirements captured yet."}</p>
             </CardContent>
           </Card>
+
+          {aiSuggestion && <AiSuggestionCard suggestion={aiSuggestion} />}
         </TabsContent>
 
         {/* Pipeline */}

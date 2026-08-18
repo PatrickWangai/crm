@@ -32,6 +32,7 @@ export interface PropertyDefaults {
   region: string | null;
   businessUnitId: string | null;
   landlordId: string | null;
+  ezenPropertyRef: string | null;
 }
 
 export function PropertyFormSheet({
@@ -151,6 +152,13 @@ export function PropertyFormSheet({
                 </SelectContent>
               </Select>
             </div>
+
+            <Field
+              label="Ezen system reference (optional)"
+              name="ezenPropertyRef"
+              defaultValue={defaultValues?.ezenPropertyRef ?? ""}
+              placeholder="External property ID once Ezen is connected"
+            />
           </SheetBody>
           <SheetFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
@@ -164,11 +172,23 @@ export function PropertyFormSheet({
   );
 }
 
-function Field({ label, name, error, defaultValue }: { label: string; name: string; error?: string[]; defaultValue?: string }) {
+function Field({
+  label,
+  name,
+  error,
+  defaultValue,
+  placeholder,
+}: {
+  label: string;
+  name: string;
+  error?: string[];
+  defaultValue?: string;
+  placeholder?: string;
+}) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} defaultValue={defaultValue} aria-invalid={!!error} />
+      <Input id={name} name={name} defaultValue={defaultValue} placeholder={placeholder} aria-invalid={!!error} />
       {error && <p className="text-xs text-destructive">{error[0]}</p>}
     </div>
   );

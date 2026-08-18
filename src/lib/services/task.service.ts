@@ -4,6 +4,7 @@ import type { TaskPriority, TaskStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
+import { isWorkflowActive } from "@/lib/services/workflow.service";
 import type { TaskInput } from "@/lib/validation/task";
 
 const VIEW_PERMS = ["tasks.view_all", "tasks.view_own"];
@@ -224,6 +225,8 @@ export async function deleteTask(id: string) {
 
 /** Flags tasks past their due date as OVERDUE and notifies the assignee. Intended for a scheduled job; safe to call repeatedly. */
 export async function flagOverdueTasks() {
+  if (!(await isWorkflowActive("task.overdue_check"))) return 0;
+
   const overdue = await prisma.task.findMany({
     where: { status: { in: ["PENDING", "IN_PROGRESS"] }, dueDate: { lt: new Date() } },
   });

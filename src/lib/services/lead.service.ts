@@ -4,6 +4,7 @@ import type { LeadSource, LeadStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
+import { isWorkflowActive } from "@/lib/services/workflow.service";
 import type { LeadInput } from "@/lib/validation/lead";
 
 const VIEW_PERMS = ["leads.view_all", "leads.view_own"];
@@ -329,6 +330,8 @@ export async function deleteLead(id: string) {
 
 /** Notifies assigned agents of leads whose next follow-up is due today or overdue. Safe to call repeatedly — intended for a scheduled job. */
 export async function flagFollowUpsDue() {
+  if (!(await isWorkflowActive("lead.follow_up_check"))) return 0;
+
   const due = await prisma.lead.findMany({
     where: {
       assignedToId: { not: null },

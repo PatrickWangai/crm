@@ -10,6 +10,7 @@ export const propertySchema = z.object({
   region: z.string().trim().max(80).optional().or(z.literal("")),
   businessUnitId: z.string().optional().or(z.literal("")),
   landlordId: z.string().optional().or(z.literal("")),
+  ezenPropertyRef: z.string().trim().max(60).optional().or(z.literal("")),
 });
 
 export type PropertyInput = z.infer<typeof propertySchema>;

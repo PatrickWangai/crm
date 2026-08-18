@@ -57,6 +57,13 @@ const SLA_POLICIES: {
   { name: "Standard – Urgent Priority", priority: "URGENT", responseTimeMinutes: 15, resolutionTimeMinutes: 120 },
 ];
 
+const WORKFLOWS: { name: string; description: string; triggerType: string }[] = [
+  { name: "Task overdue reminder", description: "Flags PENDING/IN_PROGRESS tasks past their due date and notifies the assignee.", triggerType: "task.overdue_check" },
+  { name: "Ticket SLA risk alert", description: "Notifies the assignee when an open ticket is past 75% of its SLA window or breached.", triggerType: "ticket.sla_risk_check" },
+  { name: "Lead follow-up reminder", description: "Notifies the assigned agent when a lead's next follow-up date is due or overdue.", triggerType: "lead.follow_up_check" },
+  { name: "Lease renewal reminder", description: "Flags active leases expiring within 30 days as Pending Renewal and notifies property managers.", triggerType: "lease.renewal_check" },
+];
+
 const INTEGRATIONS: { provider: "EZEN" | "SACCO_CBS" | "SMS_GATEWAY" | "EMAIL_GATEWAY" | "WHATSAPP_GATEWAY" | "AI_ASSISTANT"; displayName: string }[] = [
   { provider: "EZEN", displayName: "Ezen Property Management System" },
   { provider: "SACCO_CBS", displayName: "SACCO Core Banking System" },
@@ -225,8 +232,19 @@ async function main() {
     });
   }
 
+  console.log("Seeding default workflow automations...");
+  const ictAdmin = await prisma.user.findFirst({ where: { email: "victor.mutiso@masterways.co.ke" } });
+  for (const wf of WORKFLOWS) {
+    const existing = await prisma.workflow.findFirst({ where: { triggerType: wf.triggerType } });
+    if (!existing) {
+      await prisma.workflow.create({
+        data: { name: wf.name, description: wf.description, triggerType: wf.triggerType, isActive: true, createdById: ictAdmin?.id },
+      });
+    }
+  }
+
   console.log(
-    `\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users, ${SLA_POLICIES.length} SLA policies.`,
+    `\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users, ${SLA_POLICIES.length} SLA policies, ${WORKFLOWS.length} workflow automations.`,
   );
   console.log(`Demo password for every seeded user: ${DEMO_PASSWORD}`);
 }
