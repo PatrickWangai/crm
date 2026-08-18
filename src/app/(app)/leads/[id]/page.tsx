@@ -2,8 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getLeadDetail } from "@/lib/services/lead.service";
-import { listBusinessUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
-import { logLeadCommunicationAction, uploadLeadDocumentAction, deleteLeadDocumentAction } from "@/app/(app)/leads/actions";
+import { listBusinessUnitOptions, listDepartmentOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { logLeadCommunicationAction, uploadLeadDocumentAction, deleteLeadDocumentAction, createLeadTaskAction } from "@/app/(app)/leads/actions";
+import { RelatedTaskList } from "@/components/tasks/related-task-list";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,7 +30,6 @@ import {
   UserCog,
   FileText,
   MessageSquare,
-  CheckSquare,
   Briefcase,
   Activity as ActivityIcon,
   Download,
@@ -74,8 +74,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   let lead: Awaited<ReturnType<typeof getLeadDetail>>;
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
+  let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
   try {
-    [lead, businessUnits, staff] = await Promise.all([getLeadDetail(id), listBusinessUnitOptions(), listUserOptions()]);
+    [lead, businessUnits, staff, departments] = await Promise.all([
+      getLeadDetail(id),
+      listBusinessUnitOptions(),
+      listUserOptions(),
+      listDepartmentOptions(),
+    ]);
   } catch (err) {
     if (err instanceof ForbiddenError) redirect("/forbidden");
     throw err;
@@ -89,6 +95,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const canLogCommunication = hasPermission(user, "communications.create");
   const canUpload = hasPermission(user, "documents.upload");
   const canDeleteDocs = hasPermission(user, "documents.delete");
+  const canCreateTask = hasPermission(user, "tasks.create");
   const canClaim = !lead.assignedToId && (hasPermission(user, "leads.create") || hasPermission(user, "leads.view_own"));
 
   return (
@@ -350,15 +357,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
         {/* Tasks */}
         <TabsContent value="tasks">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tasks</CardTitle>
-              <CardDescription>Follow-ups and action items related to this lead.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EmptyState icon={CheckSquare} title="No tasks yet" description="Task management ships in a later phase." className="border-none py-8" />
-            </CardContent>
-          </Card>
+          <RelatedTaskList
+            tasks={lead.tasks}
+            canCreate={canCreateTask}
+            staff={staff}
+            departments={departments}
+            createAction={createLeadTaskAction.bind(null, lead.id)}
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import type { TicketStatus } from "@prisma/client";
 import { ticketSchema, ticketStatusChangeSchema, ticketCommentSchema, type TicketFormState, type TicketCommentFormState } from "@/lib/validation/ticket";
 import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
-import { assignTicket, addTicketComment, createTicket, deleteTicket, updateTicket, updateTicketStatus } from "@/lib/services/ticket.service";
+import { taskSchema, type TaskFormState } from "@/lib/validation/task";
+import { assignTicket, addTicketComment, createTicket, deleteTicket, updateTicket, updateTicketStatus, checkSlaRisk } from "@/lib/services/ticket.service";
 import { logCommunication } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
+import { createTask } from "@/lib/services/task.service";
 
 function toInput(formData: FormData) {
   return {
@@ -144,6 +146,34 @@ export async function deleteTicketDocumentAction(documentId: string, ticketId: s
     await deleteDocument(documentId);
     revalidatePath(`/tickets/${ticketId}`);
     return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function createTicketTaskAction(ticketId: string, _prev: TaskFormState, formData: FormData): Promise<TaskFormState> {
+  const parsed = taskSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    priority: formData.get("priority"),
+    dueDate: formData.get("dueDate"),
+    assigneeId: formData.get("assigneeId"),
+    departmentId: formData.get("departmentId"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  try {
+    const task = await createTask({ ticketId }, parsed.data);
+    revalidatePath(`/tickets/${ticketId}`);
+    return { success: true, taskId: task.id };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function checkSlaRiskAction(): Promise<{ error?: string; flagged?: number }> {
+  try {
+    const flagged = await checkSlaRisk();
+    return { flagged };
   } catch (err) {
     return { error: friendlyError(err) };
   }

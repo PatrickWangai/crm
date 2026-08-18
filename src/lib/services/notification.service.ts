@@ -35,6 +35,16 @@ export async function listMyNotifications(limit = 10) {
   });
 }
 
+export async function listMyNotificationsPaginated(page = 1, pageSize = 20) {
+  const user = await requireAuth();
+  const where = { userId: user.id };
+  const [data, total] = await Promise.all([
+    prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),
+    prisma.notification.count({ where }),
+  ]);
+  return { data, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
 export async function countMyUnreadNotifications() {
   const user = await requireAuth();
   return prisma.notification.count({ where: { userId: user.id, isRead: false } });

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { LeadSource, LeadStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
+import { createNotification } from "@/lib/services/notification.service";
 import type { LeadInput } from "@/lib/validation/lead";
 
 const VIEW_PERMS = ["leads.view_all", "leads.view_own"];
@@ -112,7 +113,7 @@ export async function getLeadDetail(id: string) {
       communications: { orderBy: { occurredAt: "desc" }, include: { staff: { select: { firstName: true, lastName: true } } } },
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { firstName: true, lastName: true } } } },
       opportunities: { orderBy: { createdAt: "desc" } },
-      tasks: { orderBy: { createdAt: "desc" } },
+      tasks: { orderBy: { createdAt: "desc" }, include: { assignee: { select: { firstName: true, lastName: true } } } },
     },
   });
 }
@@ -150,6 +151,16 @@ export async function createLead(input: LeadInput) {
     entityId: lead.id,
     newValue: { firstName: lead.firstName, lastName: lead.lastName, source: lead.source },
   });
+
+  if (lead.assignedToId) {
+    await createNotification({
+      userId: lead.assignedToId,
+      type: "LEAD_ASSIGNED",
+      title: "New lead assigned",
+      message: `${lead.firstName} ${lead.lastName} (${lead.code})`,
+      relatedUrl: `/leads/${lead.id}`,
+    });
+  }
 
   return lead;
 }
@@ -268,6 +279,16 @@ export async function assignLead(id: string, assignedToId: string | null) {
     newValue: { assignedToId },
   });
 
+  if (assignedToId && assignedToId !== before.assignedToId) {
+    await createNotification({
+      userId: assignedToId,
+      type: "LEAD_ASSIGNED",
+      title: "Lead assigned to you",
+      message: `${lead.firstName} ${lead.lastName} (${lead.code})`,
+      relatedUrl: `/leads/${lead.id}`,
+    });
+  }
+
   return lead;
 }
 
@@ -304,4 +325,28 @@ export async function deleteLead(id: string) {
   await prisma.leadStatusHistory.deleteMany({ where: { leadId: id } });
   await prisma.lead.delete({ where: { id } });
   await recordAudit({ userId: actor.id, action: "lead.deleted", entityType: "Lead", entityId: id });
+}
+
+/** Notifies assigned agents of leads whose next follow-up is due today or overdue. Safe to call repeatedly — intended for a scheduled job. */
+export async function flagFollowUpsDue() {
+  const due = await prisma.lead.findMany({
+    where: {
+      assignedToId: { not: null },
+      nextFollowUpAt: { lte: new Date() },
+      status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+    },
+  });
+
+  for (const lead of due) {
+    if (!lead.assignedToId) continue;
+    await createNotification({
+      userId: lead.assignedToId,
+      type: "FOLLOW_UP_DUE",
+      title: "Follow-up due",
+      message: `${lead.firstName} ${lead.lastName} (${lead.code})`,
+      relatedUrl: `/leads/${lead.id}`,
+    });
+  }
+
+  return due.length;
 }

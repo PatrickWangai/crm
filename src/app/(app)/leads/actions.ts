@@ -4,17 +4,20 @@ import { revalidatePath } from "next/cache";
 import type { LeadStatus, OpportunityStage } from "@prisma/client";
 import { leadSchema, leadStatusChangeSchema, opportunitySchema } from "@/lib/validation/lead";
 import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
+import { taskSchema, type TaskFormState } from "@/lib/validation/task";
 import {
   assignLead,
   claimLead,
   createLead,
   deleteLead,
+  flagFollowUpsDue,
   updateLead,
   updateLeadStatus,
 } from "@/lib/services/lead.service";
 import { logCommunication } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import { createOpportunityForLead, deleteOpportunity, updateOpportunityStage } from "@/lib/services/opportunity.service";
+import { createTask } from "@/lib/services/task.service";
 
 export interface LeadFormState {
   error?: string;
@@ -196,6 +199,34 @@ export async function deleteOpportunityAction(opportunityId: string, leadId: str
     await deleteOpportunity(opportunityId);
     revalidatePath(`/leads/${leadId}`);
     return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function checkFollowUpsDueAction(): Promise<{ error?: string; flagged?: number }> {
+  try {
+    const flagged = await flagFollowUpsDue();
+    return { flagged };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function createLeadTaskAction(leadId: string, _prev: TaskFormState, formData: FormData): Promise<TaskFormState> {
+  const parsed = taskSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    priority: formData.get("priority"),
+    dueDate: formData.get("dueDate"),
+    assigneeId: formData.get("assigneeId"),
+    departmentId: formData.get("departmentId"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  try {
+    const task = await createTask({ leadId }, parsed.data);
+    revalidatePath(`/leads/${leadId}`);
+    return { success: true, taskId: task.id };
   } catch (err) {
     return { error: friendlyError(err) };
   }

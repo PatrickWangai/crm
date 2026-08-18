@@ -3,7 +3,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getStakeholderActivity, getStakeholderProfile } from "@/lib/services/stakeholder.service";
-import { listBusinessUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { listBusinessUnitOptions, listDepartmentOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,7 +18,8 @@ import { NotesEditor } from "@/components/stakeholders/profile/notes-editor";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
-import { logCommunicationAction, uploadDocumentAction, deleteDocumentAction } from "@/app/(app)/stakeholders/actions";
+import { logCommunicationAction, uploadDocumentAction, deleteDocumentAction, createStakeholderTaskAction } from "@/app/(app)/stakeholders/actions";
+import { RelatedTaskList } from "@/components/tasks/related-task-list";
 import { initials, formatCurrency } from "@/lib/utils";
 import {
   Mail,
@@ -62,12 +63,14 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
   let activity: Awaited<ReturnType<typeof getStakeholderActivity>>;
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
+  let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
   try {
-    [profile, activity, businessUnits, staff] = await Promise.all([
+    [profile, activity, businessUnits, staff, departments] = await Promise.all([
       getStakeholderProfile(id),
       getStakeholderActivity(id),
       listBusinessUnitOptions(),
       listUserOptions(),
+      listDepartmentOptions(),
     ]);
   } catch (err) {
     if (err instanceof ForbiddenError) redirect("/forbidden");
@@ -80,6 +83,7 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
   const canLogCommunication = hasPermission(user, "communications.create");
   const canUpload = hasPermission(user, "documents.upload");
   const canDeleteDocs = hasPermission(user, "documents.delete");
+  const canCreateTask = hasPermission(user, "tasks.create");
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -348,20 +352,13 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
 
         {/* Tasks */}
         <TabsContent value="tasks">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tasks</CardTitle>
-              <CardDescription>Follow-ups and action items related to this stakeholder.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EmptyState
-                icon={CheckSquare}
-                title="No tasks yet"
-                description="Task management ships in a later phase."
-                className="border-none py-8"
-              />
-            </CardContent>
-          </Card>
+          <RelatedTaskList
+            tasks={profile.tasks}
+            canCreate={canCreateTask}
+            staff={staff}
+            departments={departments}
+            createAction={createStakeholderTaskAction.bind(null, profile.id)}
+          />
         </TabsContent>
 
         {/* Properties */}

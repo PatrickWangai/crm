@@ -1,6 +1,8 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -15,10 +17,12 @@ export interface NotificationItem {
   message: string;
   isRead: boolean;
   createdAt: string | Date;
+  relatedUrl?: string | null;
 }
 
 export function NotificationBell({ notifications, unreadCount }: { notifications: NotificationItem[]; unreadCount: number }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <Popover>
@@ -56,7 +60,12 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
             notifications.map((n) => (
               <button
                 key={n.id}
-                onClick={() => !n.isRead && startTransition(() => markNotificationReadAction(n.id))}
+                onClick={() =>
+                  startTransition(async () => {
+                    if (!n.isRead) await markNotificationReadAction(n.id);
+                    if (n.relatedUrl) router.push(n.relatedUrl);
+                  })
+                }
                 className={cn(
                   "flex w-full flex-col items-start gap-0.5 border-b border-border px-4 py-3 text-left transition-colors last:border-0 hover:bg-secondary/50",
                   !n.isRead && "bg-accent/40",
@@ -74,6 +83,9 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
             ))
           )}
         </div>
+        <Link href="/notifications" className="block border-t border-border px-4 py-2.5 text-center text-xs font-medium text-primary hover:underline">
+          View all notifications
+        </Link>
       </PopoverContent>
     </Popover>
   );

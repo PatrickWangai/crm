@@ -8,7 +8,9 @@ import {
   logTicketCommunicationAction,
   uploadTicketDocumentAction,
   deleteTicketDocumentAction,
+  createTicketTaskAction,
 } from "@/app/(app)/tickets/actions";
+import { RelatedTaskList } from "@/components/tasks/related-task-list";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +26,7 @@ import { TicketCommentForm } from "@/components/tickets/ticket-comment-form";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
-import { Mail, Phone, Building2, FileText, MessageSquare, MessageSquareText, CheckSquare, Download, User as UserIcon, Lock } from "lucide-react";
+import { Mail, Phone, Building2, FileText, MessageSquare, MessageSquareText, Download, User as UserIcon, Lock } from "lucide-react";
 
 const CHANNEL_LABELS: Record<string, string> = {
   CALL: "Call",
@@ -71,6 +73,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const canLogCommunication = hasPermission(user, "communications.create");
   const canUpload = hasPermission(user, "documents.upload");
   const canDeleteDocs = hasPermission(user, "documents.delete");
+  const canCreateTask = hasPermission(user, "tasks.create");
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -293,26 +296,13 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
         {/* Tasks */}
         <TabsContent value="tasks">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tasks</CardTitle>
-              <CardDescription>Follow-ups and action items related to this ticket.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {ticket.tasks.length === 0 ? (
-                <EmptyState icon={CheckSquare} title="No tasks yet" className="border-none py-8" />
-              ) : (
-                <ul className="divide-y divide-border">
-                  {ticket.tasks.map((task) => (
-                    <li key={task.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-                      <span>{task.title}</span>
-                      <StatusBadge status={task.status} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <RelatedTaskList
+            tasks={ticket.tasks}
+            canCreate={canCreateTask}
+            staff={staff}
+            departments={departments}
+            createAction={createTicketTaskAction.bind(null, ticket.id)}
+          />
         </TabsContent>
       </Tabs>
     </div>

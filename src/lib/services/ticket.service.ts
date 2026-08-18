@@ -111,7 +111,7 @@ export async function getTicketDetail(id: string) {
       comments: { orderBy: { createdAt: "desc" }, include: { user: { select: { firstName: true, lastName: true } } } },
       communications: { orderBy: { occurredAt: "desc" }, include: { staff: { select: { firstName: true, lastName: true } } } },
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { firstName: true, lastName: true } } } },
-      tasks: { orderBy: { createdAt: "desc" } },
+      tasks: { orderBy: { createdAt: "desc" }, include: { assignee: { select: { firstName: true, lastName: true } } } },
     },
   });
 }
@@ -277,6 +277,50 @@ export async function addTicketComment(id: string, comment: string, isInternal: 
   await recordAudit({ userId: actor.id, action: "ticket.commented", entityType: "Ticket", entityId: id, newValue: { isInternal } });
 
   return record;
+}
+
+/**
+ * Scans open tickets against their SLA due date and notifies the assignee when
+ * at risk (past 75% of the allotted time) or breached. Intended for a scheduled
+ * job; safe to call repeatedly — Communication/AuditLog aren't used to dedupe,
+ * so this is meant to be triggered a few times a day, not on every request.
+ */
+export async function checkSlaRisk() {
+  const openTickets = await prisma.ticket.findMany({
+    where: { status: { notIn: ["COMPLETED", "CLOSED"] }, dueAt: { not: null }, assignedToId: { not: null } },
+  });
+
+  const now = Date.now();
+  let flagged = 0;
+  for (const ticket of openTickets) {
+    if (!ticket.dueAt || !ticket.assignedToId) continue;
+    const due = ticket.dueAt.getTime();
+    const created = ticket.createdAt.getTime();
+    const elapsedFraction = (now - created) / (due - created);
+    const breached = due < now;
+
+    if (breached) {
+      await createNotification({
+        userId: ticket.assignedToId,
+        type: "SLA_BREACH",
+        title: "SLA breached",
+        message: `${ticket.ticketNumber}: ${ticket.subject}`,
+        relatedUrl: `/tickets/${ticket.id}`,
+      });
+      flagged += 1;
+    } else if (elapsedFraction >= 0.75) {
+      await createNotification({
+        userId: ticket.assignedToId,
+        type: "SLA_RISK",
+        title: "Ticket approaching SLA deadline",
+        message: `${ticket.ticketNumber}: ${ticket.subject}`,
+        relatedUrl: `/tickets/${ticket.id}`,
+      });
+      flagged += 1;
+    }
+  }
+
+  return flagged;
 }
 
 export async function deleteTicket(id: string) {

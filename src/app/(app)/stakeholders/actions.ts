@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { stakeholderSchema } from "@/lib/validation/stakeholder";
 import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
+import { taskSchema, type TaskFormState } from "@/lib/validation/task";
 import {
   createStakeholder,
   deleteStakeholder,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/services/stakeholder.service";
 import { logCommunication } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
+import { createTask } from "@/lib/services/task.service";
 
 export interface StakeholderFormState {
   error?: string;
@@ -122,6 +124,25 @@ export async function deleteDocumentAction(documentId: string, stakeholderId: st
     await deleteDocument(documentId);
     revalidatePath(`/stakeholders/${stakeholderId}`);
     return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function createStakeholderTaskAction(stakeholderId: string, _prev: TaskFormState, formData: FormData): Promise<TaskFormState> {
+  const parsed = taskSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    priority: formData.get("priority"),
+    dueDate: formData.get("dueDate"),
+    assigneeId: formData.get("assigneeId"),
+    departmentId: formData.get("departmentId"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  try {
+    const task = await createTask({ stakeholderId }, parsed.data);
+    revalidatePath(`/stakeholders/${stakeholderId}`);
+    return { success: true, taskId: task.id };
   } catch (err) {
     return { error: friendlyError(err) };
   }

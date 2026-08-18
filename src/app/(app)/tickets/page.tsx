@@ -12,6 +12,7 @@ import { SlaBadge } from "@/components/sla-badge";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
 import { TicketFormSheet } from "@/components/tickets/ticket-form-sheet";
 import { TicketKanban } from "@/components/tickets/ticket-kanban";
+import { CheckSlaRiskButton } from "@/components/tickets/check-sla-risk-button";
 import { initials } from "@/lib/utils";
 import { Ticket as TicketIcon } from "lucide-react";
 import type { TicketPriority, TicketStatus } from "@prisma/client";
@@ -44,9 +45,12 @@ export default async function TicketsPage({
         title="Tickets"
         description="Track and resolve customer service requests against SLA targets."
         actions={
-          canCreate ? (
-            <TicketFormSheet mode="create" stakeholders={stakeholders} businessUnits={businessUnits} departments={departments} staff={staff} redirectOnCreate />
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {hasPermission(user, "tickets.assign") && <CheckSlaRiskButton />}
+            {canCreate && (
+              <TicketFormSheet mode="create" stakeholders={stakeholders} businessUnits={businessUnits} departments={departments} staff={staff} redirectOnCreate />
+            )}
+          </div>
         }
       />
 

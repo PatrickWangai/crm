@@ -14,6 +14,9 @@ import {
   FileSignature,
   Wrench,
   Receipt,
+  CheckSquare,
+  Bell,
+  MessageSquare,
 } from "lucide-react";
 
 export interface NavItem {
@@ -37,7 +40,11 @@ export interface NavSection {
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Overview",
-    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.view" }],
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
+      { label: "Notifications", href: "/notifications", icon: Bell, permission: "notifications.view_own" },
+      { label: "Tasks", href: "/tasks", icon: CheckSquare, permission: ["tasks.view_all", "tasks.view_own"] },
+    ],
   },
   {
     label: "CRM",
@@ -53,6 +60,12 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/stakeholders",
         icon: Contact,
         permission: ["stakeholders.view_all", "stakeholders.view_own"],
+      },
+      {
+        label: "Communications",
+        href: "/communications",
+        icon: MessageSquare,
+        permission: ["communications.view_all", "communications.view_own"],
       },
     ],
   },

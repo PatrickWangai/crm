@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { LeadFilters } from "@/components/leads/lead-filters";
 import { LeadFormSheet } from "@/components/leads/lead-form-sheet";
 import { LeadKanban } from "@/components/leads/lead-kanban";
+import { CheckFollowUpsButton } from "@/components/leads/check-follow-ups-button";
 import { initials } from "@/lib/utils";
 import { Users2 } from "lucide-react";
 import type { LeadSource, LeadStatus } from "@prisma/client";
@@ -37,7 +38,12 @@ export default async function LeadsPage({
       <PageHeader
         title="Leads"
         description="Capture prospects and move them through the sales pipeline."
-        actions={canCreate ? <LeadFormSheet mode="create" businessUnits={businessUnits} staff={staff} redirectOnCreate /> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            {hasPermission(user, "leads.assign") && <CheckFollowUpsButton />}
+            {canCreate && <LeadFormSheet mode="create" businessUnits={businessUnits} staff={staff} redirectOnCreate />}
+          </div>
+        }
       />
 
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
