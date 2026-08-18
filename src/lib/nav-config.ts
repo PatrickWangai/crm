@@ -1,5 +1,20 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList, Contact, Users2, Ticket, Timer } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  ShieldCheck,
+  Landmark,
+  ClipboardList,
+  Contact,
+  Users2,
+  Ticket,
+  Timer,
+  Home,
+  FileSignature,
+  Wrench,
+  Receipt,
+} from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -51,6 +66,18 @@ export const NAV_SECTIONS: NavSection[] = [
         permission: ["tickets.view_all", "tickets.view_own"],
       },
     ],
+  },
+  {
+    label: "Property Management",
+    items: [
+      { label: "Properties", href: "/properties", icon: Home, permission: "properties.view_all" },
+      { label: "Leases", href: "/leases", icon: FileSignature, permission: "leases.view_all" },
+      { label: "Maintenance", href: "/maintenance", icon: Wrench, permission: "maintenance.view_all" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [{ label: "Invoices & Payments", href: "/finance", icon: Receipt, permission: "finance.view" }],
   },
   {
     label: "Administration",

@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
+import type { DocumentRelatedType } from "@prisma/client";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { deleteFile, saveFile } from "@/lib/storage/local";
@@ -17,12 +18,37 @@ const ALLOWED_TYPES = new Set([
   "text/plain",
 ]);
 
-export type DocumentTarget = { stakeholderId: string } | { leadId: string } | { ticketId: string };
+export type DocumentTarget =
+  | { stakeholderId: string }
+  | { leadId: string }
+  | { ticketId: string }
+  | { propertyId: string }
+  | { unitId: string }
+  | { leaseId: string }
+  | { maintenanceRequestId: string };
 
-function relatedTypeFor(target: DocumentTarget) {
-  if ("stakeholderId" in target) return "STAKEHOLDER" as const;
-  if ("leadId" in target) return "LEAD" as const;
-  return "TICKET" as const;
+interface ResolvedTarget {
+  relatedType: DocumentRelatedType;
+  entityType: string;
+  entityId: string;
+  relationField:
+    | { stakeholderId: string }
+    | { leadId: string }
+    | { ticketId: string }
+    | { propertyId: string }
+    | { unitId: string }
+    | { leaseId: string }
+    | { maintenanceRequestId: string };
+}
+
+function resolveTarget(target: DocumentTarget): ResolvedTarget {
+  if ("stakeholderId" in target) return { relatedType: "STAKEHOLDER", entityType: "Stakeholder", entityId: target.stakeholderId, relationField: target };
+  if ("leadId" in target) return { relatedType: "LEAD", entityType: "Lead", entityId: target.leadId, relationField: target };
+  if ("ticketId" in target) return { relatedType: "TICKET", entityType: "Ticket", entityId: target.ticketId, relationField: target };
+  if ("propertyId" in target) return { relatedType: "PROPERTY", entityType: "Property", entityId: target.propertyId, relationField: target };
+  if ("unitId" in target) return { relatedType: "UNIT", entityType: "Unit", entityId: target.unitId, relationField: target };
+  if ("leaseId" in target) return { relatedType: "LEASE", entityType: "Lease", entityId: target.leaseId, relationField: target };
+  return { relatedType: "PROPERTY", entityType: "MaintenanceRequest", entityId: target.maintenanceRequestId, relationField: target };
 }
 
 export async function uploadDocument(target: DocumentTarget, file: File) {
@@ -36,6 +62,7 @@ export async function uploadDocument(target: DocumentTarget, file: File) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const { filePath, fileSizeBytes } = await saveFile(buffer, file.name);
+  const resolved = resolveTarget(target);
 
   const document = await prisma.document.create({
     data: {
@@ -43,22 +70,17 @@ export async function uploadDocument(target: DocumentTarget, file: File) {
       fileType: file.type || "application/octet-stream",
       fileSizeBytes,
       filePath,
-      relatedType: relatedTypeFor(target),
-      stakeholderId: "stakeholderId" in target ? target.stakeholderId : undefined,
-      leadId: "leadId" in target ? target.leadId : undefined,
-      ticketId: "ticketId" in target ? target.ticketId : undefined,
+      relatedType: resolved.relatedType,
       uploadedById: actor.id,
+      ...resolved.relationField,
     },
   });
-
-  const entityType = "stakeholderId" in target ? "Stakeholder" : "leadId" in target ? "Lead" : "Ticket";
-  const entityId = "stakeholderId" in target ? target.stakeholderId : "leadId" in target ? target.leadId : target.ticketId;
 
   await recordAudit({
     userId: actor.id,
     action: "document.uploaded",
-    entityType,
-    entityId,
+    entityType: resolved.entityType,
+    entityId: resolved.entityId,
     newValue: { fileName: document.fileName, documentId: document.id },
   });
 
@@ -72,11 +94,21 @@ export async function deleteDocument(documentId: string) {
   await deleteFile(document.filePath);
   await prisma.document.delete({ where: { id: documentId } });
 
+  const entityId =
+    document.stakeholderId ??
+    document.leadId ??
+    document.ticketId ??
+    document.propertyId ??
+    document.unitId ??
+    document.leaseId ??
+    document.maintenanceRequestId ??
+    documentId;
+
   await recordAudit({
     userId: actor.id,
     action: "document.deleted",
     entityType: document.relatedType,
-    entityId: document.stakeholderId ?? document.leadId ?? document.ticketId ?? documentId,
+    entityId,
     previousValue: { fileName: document.fileName },
   });
 }

@@ -36,3 +36,41 @@ export async function listStakeholderOptions() {
   });
   return stakeholders.map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName} (${s.code})` }));
 }
+
+export async function listPropertyOptions() {
+  await requireAuth();
+  const properties = await prisma.property.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, code: true } });
+  return properties.map((p) => ({ id: p.id, name: `${p.name} (${p.code})` }));
+}
+
+export async function listLeaseOptions() {
+  await requireAuth();
+  const leases = await prisma.lease.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+    take: 300,
+    select: { id: true, code: true, tenant: { select: { firstName: true, lastName: true } } },
+  });
+  return leases.map((l) => ({ id: l.id, name: `${l.code} — ${l.tenant.firstName} ${l.tenant.lastName}` }));
+}
+
+/** All units, with their property name, for pickers that aren't restricted to vacancy (e.g. maintenance job cards). */
+export async function listUnitOptions() {
+  await requireAuth();
+  const units = await prisma.unit.findMany({
+    orderBy: { unitNumber: "asc" },
+    include: { property: { select: { name: true } } },
+  });
+  return units.map((u) => ({ id: u.id, name: `${u.property.name} — Unit ${u.unitNumber} (${u.code})` }));
+}
+
+/** Vacant units across the portfolio, for picking a unit when starting a new lease. */
+export async function listVacantUnitOptions() {
+  await requireAuth();
+  const units = await prisma.unit.findMany({
+    where: { status: "VACANT" },
+    orderBy: { unitNumber: "asc" },
+    include: { property: { select: { name: true } } },
+  });
+  return units.map((u) => ({ id: u.id, name: `${u.property.name} — Unit ${u.unitNumber} (${u.code})` }));
+}

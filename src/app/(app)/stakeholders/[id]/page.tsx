@@ -383,18 +383,63 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
                 <div className="space-y-6">
                   {profile.leasesAsTenant.length > 0 && (
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Leases</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Leases (as tenant)</p>
                       <ul className="space-y-2">
                         {profile.leasesAsTenant.map((lease) => (
-                          <li key={lease.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
-                            <span>
-                              {lease.unit.property.name} &middot; Unit {lease.unit.unitNumber}
-                            </span>
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <Calendar className="size-3.5" />
-                              {new Date(lease.startDate).toLocaleDateString()} – {new Date(lease.endDate).toLocaleDateString()}
-                            </span>
-                            <span className="font-medium">{formatCurrency(Number(lease.rentAmount))}</span>
+                          <li key={lease.id}>
+                            <Link
+                              href={`/leases/${lease.id}`}
+                              className="flex items-center justify-between rounded-md border border-border p-3 text-sm hover:border-primary"
+                            >
+                              <span>
+                                {lease.unit.property.name} &middot; Unit {lease.unit.unitNumber}
+                              </span>
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <Calendar className="size-3.5" />
+                                {new Date(lease.startDate).toLocaleDateString()} – {new Date(lease.endDate).toLocaleDateString()}
+                              </span>
+                              <span className="font-medium">{formatCurrency(Number(lease.rentAmount))}</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {profile.unitsOccupied.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Units occupied</p>
+                      <ul className="space-y-2">
+                        {profile.unitsOccupied.map((unit) => (
+                          <li key={unit.id}>
+                            <Link
+                              href={`/units/${unit.id}`}
+                              className="flex items-center justify-between rounded-md border border-border p-3 text-sm hover:border-primary"
+                            >
+                              <span>
+                                {unit.property.name} &middot; Unit {unit.unitNumber}
+                              </span>
+                              <StatusBadge status={unit.status} />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {profile.propertiesOwned.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Properties owned (landlord)</p>
+                      <ul className="space-y-2">
+                        {profile.propertiesOwned.map((property) => (
+                          <li key={property.id}>
+                            <Link
+                              href={`/properties/${property.id}`}
+                              className="flex items-center justify-between rounded-md border border-border p-3 text-sm hover:border-primary"
+                            >
+                              <span>{property.name}</span>
+                              <span className="text-muted-foreground">{property.code}</span>
+                            </Link>
                           </li>
                         ))}
                       </ul>
