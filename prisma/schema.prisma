@@ -349,6 +349,8 @@ model User {
   maintenanceReported  MaintenanceRequest[] @relation("MaintenanceReporter")
   createdInvoices      Invoice[]
   approvedInvoices     Invoice[]            @relation("InvoiceApprover")
+  reconciledPayments   Payment[]            @relation("PaymentReconciler")
+  createdDisbursements Disbursement[]
 
   @@index([roleId])
   @@index([departmentId])
@@ -412,6 +414,7 @@ model Stakeholder {
   propertiesOwned  Property[]      @relation("PropertyLandlord")
   unitsOccupied    Unit[]          @relation("UnitTenant")
   invoices         Invoice[]
+  disbursements    Disbursement[]
 
   @@index([type])
   @@index([businessUnitId])
@@ -540,6 +543,7 @@ model Property {
   maintenanceRequests MaintenanceRequest[]
   documents           Document[]
   tasks               Task[]
+  disbursements       Disbursement[]
 
   @@index([businessUnitId])
   @@map("properties")
@@ -924,18 +928,50 @@ model Invoice {
 }
 
 model Payment {
-  id           String        @id @default(cuid())
-  invoiceId    String
-  invoice      Invoice       @relation(fields: [invoiceId], references: [id])
-  amount       Decimal       @db.Decimal(14, 2)
-  method       PaymentMethod
-  reference    String?
-  paidAt       DateTime      @default(now())
-  recordedById String?
-  recordedBy   User?         @relation(fields: [recordedById], references: [id])
+  id             String        @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id])
+  receiptNumber  String        @unique // e.g. RCT-000123
+  amount         Decimal       @db.Decimal(14, 2)
+  method         PaymentMethod
+  reference      String?
+  paidAt         DateTime      @default(now())
+  recordedById   String?
+  recordedBy     User?         @relation(fields: [recordedById], references: [id])
+  isReconciled   Boolean       @default(false)
+  reconciledAt   DateTime?
+  reconciledById String?
+  reconciledBy   User?         @relation("PaymentReconciler", fields: [reconciledById], references: [id])
 
   @@index([invoiceId])
   @@map("payments")
+}
+
+enum DisbursementStatus {
+  DRAFT
+  PAID
+}
+
+model Disbursement {
+  id          String             @id @default(cuid())
+  code        String             @unique // e.g. DSB-000123
+  landlordId  String
+  landlord    Stakeholder        @relation(fields: [landlordId], references: [id])
+  propertyId  String?
+  property    Property?          @relation(fields: [propertyId], references: [id])
+  periodLabel String // e.g. "August 2026"
+  amount      Decimal            @db.Decimal(14, 2)
+  status      DisbursementStatus @default(DRAFT)
+  notes       String?
+  paidAt      DateTime?
+  createdById String?
+  createdBy   User?              @relation(fields: [createdById], references: [id])
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([landlordId])
+  @@index([status])
+  @@map("disbursements")
 }
 
 // ---------------------------------------------------------------------------

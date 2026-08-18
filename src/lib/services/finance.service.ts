@@ -4,15 +4,29 @@ import type { InvoiceStatus } from "@prisma/client";
 import { requireAnyPermission, hasPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
-import type { InvoiceInput, PaymentInput } from "@/lib/validation/finance";
+import type { DisbursementInput, InvoiceInput, PaymentInput } from "@/lib/validation/finance";
 
 function cleanId(value?: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
+function cleanStr(value?: string | null): string | undefined {
+  return value && value.length > 0 ? value : undefined;
+}
+
 async function nextInvoiceNumber(): Promise<string> {
   const count = await prisma.invoice.count();
   return `INV-${String(count + 1).padStart(6, "0")}`;
+}
+
+async function nextReceiptNumber(): Promise<string> {
+  const count = await prisma.payment.count();
+  return `RCT-${String(count + 1).padStart(6, "0")}`;
+}
+
+async function nextDisbursementCode(): Promise<string> {
+  const count = await prisma.disbursement.count();
+  return `DSB-${String(count + 1).padStart(6, "0")}`;
 }
 
 export interface ListInvoicesParams {
@@ -162,11 +176,13 @@ export async function rejectInvoice(id: string) {
 export async function recordPayment(invoiceId: string, input: PaymentInput) {
   const actor = await requireAnyPermission(["finance.manage"]);
   const invoice = await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { payments: true } });
+  const receiptNumber = await nextReceiptNumber();
 
   const payment = await prisma.$transaction(async (tx) => {
     const created = await tx.payment.create({
       data: {
         invoiceId,
+        receiptNumber,
         amount: input.amount,
         method: input.method,
         reference: input.reference || undefined,
@@ -181,7 +197,165 @@ export async function recordPayment(invoiceId: string, input: PaymentInput) {
     return created;
   });
 
-  await recordAudit({ userId: actor.id, action: "payment.recorded", entityType: "Invoice", entityId: invoiceId, newValue: { amount: input.amount, method: input.method } });
+  await recordAudit({ userId: actor.id, action: "payment.recorded", entityType: "Invoice", entityId: invoiceId, newValue: { amount: input.amount, method: input.method, receiptNumber } });
 
   return payment;
+}
+
+export interface ListPaymentsParams {
+  q?: string;
+  reconciled?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Flat payments list — for the reconciliation view (receipts aren't otherwise browsable outside their invoice). */
+export async function listPayments(params: ListPaymentsParams = {}) {
+  await requireAnyPermission(["finance.view"]);
+
+  const page = params.page && params.page > 0 ? params.page : 1;
+  const pageSize = params.pageSize && params.pageSize > 0 ? params.pageSize : 20;
+
+  const where = {
+    AND: [
+      params.q
+        ? {
+            OR: [
+              { receiptNumber: { contains: params.q, mode: "insensitive" as const } },
+              { reference: { contains: params.q, mode: "insensitive" as const } },
+              { invoice: { invoiceNumber: { contains: params.q, mode: "insensitive" as const } } },
+            ],
+          }
+        : {},
+      params.reconciled !== undefined ? { isReconciled: params.reconciled } : {},
+    ],
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      include: {
+        invoice: { select: { id: true, invoiceNumber: true, stakeholder: { select: { firstName: true, lastName: true } } } },
+        recordedBy: { select: { firstName: true, lastName: true } },
+        reconciledBy: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { paidAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.payment.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export async function getPaymentReceipt(id: string) {
+  await requireAnyPermission(["finance.view"]);
+  return prisma.payment.findUnique({
+    where: { id },
+    include: {
+      invoice: { include: { stakeholder: true, lease: { select: { code: true } } } },
+      recordedBy: { select: { firstName: true, lastName: true } },
+    },
+  });
+}
+
+export async function toggleReconcilePayment(id: string) {
+  const actor = await requireAnyPermission(["finance.manage"]);
+  const payment = await prisma.payment.findUniqueOrThrow({ where: { id } });
+
+  const updated = await prisma.payment.update({
+    where: { id },
+    data: payment.isReconciled
+      ? { isReconciled: false, reconciledAt: null, reconciledById: null }
+      : { isReconciled: true, reconciledAt: new Date(), reconciledById: actor.id },
+  });
+
+  await recordAudit({
+    userId: actor.id,
+    action: updated.isReconciled ? "payment.reconciled" : "payment.unreconciled",
+    entityType: "Payment",
+    entityId: id,
+  });
+
+  return updated;
+}
+
+/** Overdue invoices grouped by stakeholder, with days overdue — the arrears view. */
+export async function getArrearsReport() {
+  await requireAnyPermission(["finance.view"]);
+
+  const overdue = await prisma.invoice.findMany({
+    where: { status: { in: ["SENT", "PARTIALLY_PAID"] }, dueDate: { lt: new Date() } },
+    include: { stakeholder: { select: { id: true, firstName: true, lastName: true, code: true } }, payments: true },
+    orderBy: { dueDate: "asc" },
+  });
+
+  const now = Date.now();
+  const rows = overdue.map((invoice) => {
+    const paid = invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const balance = Number(invoice.amount) - paid;
+    const daysOverdue = Math.floor((now - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      stakeholder: invoice.stakeholder,
+      dueDate: invoice.dueDate,
+      balance,
+      daysOverdue,
+    };
+  });
+
+  const totalArrears = rows.reduce((sum, r) => sum + r.balance, 0);
+
+  return { rows, totalArrears, count: rows.length };
+}
+
+export async function listDisbursements() {
+  await requireAnyPermission(["finance.view"]);
+  return prisma.disbursement.findMany({
+    include: {
+      landlord: { select: { id: true, firstName: true, lastName: true, code: true } },
+      property: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createDisbursement(input: DisbursementInput) {
+  const actor = await requireAnyPermission(["finance.manage"]);
+  const code = await nextDisbursementCode();
+
+  const disbursement = await prisma.disbursement.create({
+    data: {
+      code,
+      landlordId: input.landlordId,
+      propertyId: cleanId(input.propertyId) ?? undefined,
+      periodLabel: input.periodLabel,
+      amount: input.amount,
+      notes: cleanStr(input.notes),
+      createdById: actor.id,
+    },
+  });
+
+  await recordAudit({ userId: actor.id, action: "disbursement.created", entityType: "Disbursement", entityId: disbursement.id, newValue: { amount: input.amount } });
+
+  return disbursement;
+}
+
+export async function markDisbursementPaid(id: string) {
+  const actor = await requireAnyPermission(["finance.manage"]);
+  const disbursement = await prisma.disbursement.update({ where: { id }, data: { status: "PAID", paidAt: new Date() } });
+
+  await recordAudit({ userId: actor.id, action: "disbursement.paid", entityType: "Disbursement", entityId: id });
+
+  await createNotification({
+    userId: disbursement.createdById ?? actor.id,
+    type: "SYSTEM",
+    title: "Landlord disbursement paid",
+    message: `${disbursement.code} for ${disbursement.periodLabel} marked as paid.`,
+    relatedUrl: "/finance",
+  });
+
+  return disbursement;
 }

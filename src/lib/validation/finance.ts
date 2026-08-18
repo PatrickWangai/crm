@@ -29,3 +29,19 @@ export interface PaymentFormState {
   fieldErrors?: Record<string, string[]>;
   success?: boolean;
 }
+
+export const disbursementSchema = z.object({
+  landlordId: z.string().trim().min(1, "Select a landlord"),
+  propertyId: z.string().optional().or(z.literal("")),
+  periodLabel: z.string().trim().min(1, "Period is required").max(60),
+  amount: z.coerce.number().min(0.01, "Amount must be greater than 0").max(999_999_999),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
+export type DisbursementInput = z.infer<typeof disbursementSchema>;
+
+export interface DisbursementFormState {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+}
