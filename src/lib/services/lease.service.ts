@@ -5,6 +5,7 @@ import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { LeaseInput } from "@/lib/validation/lease";
 
 function cleanId(value?: string | null): string | null {
@@ -63,9 +64,9 @@ export async function listLeases(params: ListLeasesParams = {}) {
 }
 
 export async function getLeaseDetail(id: string) {
-  await requireAnyPermission(["leases.view_all"]);
+  const user = await requireAnyPermission(["leases.view_all"]);
 
-  return prisma.lease.findUnique({
+  const lease = await prisma.lease.findUnique({
     where: { id },
     include: {
       unit: { include: { property: { select: { id: true, name: true, code: true } } } },
@@ -75,6 +76,8 @@ export async function getLeaseDetail(id: string) {
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { firstName: true, lastName: true } } } },
     },
   });
+  if (!lease) return null;
+  return { ...lease, documents: filterVisibleDocuments(user, lease.documents) };
 }
 
 export async function createLease(input: LeaseInput) {

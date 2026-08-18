@@ -132,8 +132,10 @@ export async function uploadTicketDocumentAction(ticketId: string, _prev: Docume
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Please choose a file to upload." };
   }
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ ticketId }, file);
+    await uploadDocument({ ticketId }, file, accessLevel);
     revalidatePath(`/tickets/${ticketId}`);
     return { success: true };
   } catch (err) {

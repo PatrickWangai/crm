@@ -71,8 +71,10 @@ export async function deleteMaintenanceAction(id: string): Promise<{ error?: str
 export async function uploadMaintenanceDocumentAction(requestId: string, _prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Please choose a file to upload." };
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ maintenanceRequestId: requestId }, file);
+    await uploadDocument({ maintenanceRequestId: requestId }, file, accessLevel);
     revalidatePath(`/maintenance/${requestId}`);
     return { success: true };
   } catch (err) {

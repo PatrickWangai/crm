@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { StakeholderType } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { StakeholderInput } from "@/lib/validation/stakeholder";
 
 const VIEW_PERMS = ["stakeholders.view_all", "stakeholders.view_own"];
@@ -87,9 +88,9 @@ async function assertCanViewStakeholder(stakeholderId: string) {
 }
 
 export async function getStakeholderProfile(id: string) {
-  await assertCanViewStakeholder(id);
+  const user = await assertCanViewStakeholder(id);
 
-  return prisma.stakeholder.findUnique({
+  const profile = await prisma.stakeholder.findUnique({
     where: { id },
     include: {
       businessUnit: true,
@@ -112,6 +113,8 @@ export async function getStakeholderProfile(id: string) {
       unitsOccupied: { include: { property: true } },
     },
   });
+  if (!profile) return null;
+  return { ...profile, documents: filterVisibleDocuments(user, profile.documents) };
 }
 
 export async function getStakeholderActivity(id: string) {

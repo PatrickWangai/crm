@@ -11,8 +11,10 @@ function friendlyError(err: unknown): string {
 export async function uploadUnitDocumentAction(unitId: string, _prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Please choose a file to upload." };
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ unitId }, file);
+    await uploadDocument({ unitId }, file, accessLevel);
     revalidatePath(`/units/${unitId}`);
     return { success: true };
   } catch (err) {

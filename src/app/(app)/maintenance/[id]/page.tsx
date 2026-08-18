@@ -15,6 +15,7 @@ import { AssignMaintenanceSelect } from "@/components/maintenance/assign-mainten
 import { DeleteMaintenanceButton } from "@/components/maintenance/delete-maintenance-button";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
+import { DocumentBadges } from "@/components/documents/document-badges";
 import { formatCurrency } from "@/lib/utils";
 import { Wrench, Building2, User as UserIcon, Calendar, FileText, Download } from "lucide-react";
 
@@ -127,7 +128,9 @@ export default async function MaintenanceDetailPage({ params }: { params: Promis
                       <div className="flex min-w-0 items-center gap-3">
                         <FileText className="size-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{doc.fileName}</p>
+                          <p className="truncate text-sm font-medium">
+                            {doc.fileName} <DocumentBadges version={doc.version} accessLevel={doc.accessLevel} />
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {formatBytes(doc.fileSizeBytes)} &middot; uploaded {formatDistanceToNow(new Date(doc.createdAt), { addSuffix: true })}
                             {doc.uploadedBy && ` by ${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`}

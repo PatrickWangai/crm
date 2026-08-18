@@ -26,6 +26,7 @@ import { TicketCommentForm } from "@/components/tickets/ticket-comment-form";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
+import { DocumentBadges } from "@/components/documents/document-badges";
 import { Mail, Phone, Building2, FileText, MessageSquare, MessageSquareText, Download, User as UserIcon, Lock } from "lucide-react";
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -269,7 +270,9 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                       <div className="flex min-w-0 items-center gap-3">
                         <FileText className="size-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{doc.fileName}</p>
+                          <p className="truncate text-sm font-medium">
+                            {doc.fileName} <DocumentBadges version={doc.version} accessLevel={doc.accessLevel} />
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {formatBytes(doc.fileSizeBytes)} &middot; uploaded {formatDistanceToNow(new Date(doc.createdAt), { addSuffix: true })}
                             {doc.uploadedBy && ` by ${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`}

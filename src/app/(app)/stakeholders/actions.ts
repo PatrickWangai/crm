@@ -112,8 +112,10 @@ export async function uploadDocumentAction(stakeholderId: string, _prev: Documen
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Please choose a file to upload." };
   }
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ stakeholderId }, file);
+    await uploadDocument({ stakeholderId }, file, accessLevel);
     revalidatePath(`/stakeholders/${stakeholderId}`);
     return { success: true };
   } catch (err) {

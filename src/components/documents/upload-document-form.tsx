@@ -1,12 +1,19 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { DocumentFormState } from "@/lib/validation/communication";
 
 const initialState: DocumentFormState = {};
+
+const ACCESS_LEVEL_LABELS: Record<string, string> = {
+  internal: "Internal (default — anyone who can view this record)",
+  restricted: "Restricted (only me + full document access)",
+  public: "Public",
+};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -21,6 +28,7 @@ type UploadAction = (prevState: DocumentFormState, formData: FormData) => Promis
 
 export function UploadDocumentForm({ action }: { action: UploadAction }) {
   const [state, formAction] = useActionState(action, initialState);
+  const [accessLevel, setAccessLevel] = useState("internal");
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -38,9 +46,22 @@ export function UploadDocumentForm({ action }: { action: UploadAction }) {
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt"
           className="flex-1 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80"
         />
+        <input type="hidden" name="accessLevel" value={accessLevel} />
+        <Select value={accessLevel} onValueChange={setAccessLevel}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(ACCESS_LEVEL_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <SubmitButton />
       </div>
-      <p className="text-xs text-muted-foreground">PDF, Word, Excel, image or text files up to 15MB.</p>
+      <p className="text-xs text-muted-foreground">PDF, Word, Excel, image or text files up to 15MB. Re-uploading the same filename adds a new version.</p>
     </form>
   );
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { PropertyInput } from "@/lib/validation/property";
 
 const VIEW_PERMS = ["properties.view_all"];
@@ -64,9 +65,9 @@ export async function listProperties(params: ListPropertiesParams = {}) {
 }
 
 export async function getPropertyDetail(id: string) {
-  await requireAnyPermission(VIEW_PERMS);
+  const user = await requireAnyPermission(VIEW_PERMS);
 
-  return prisma.property.findUnique({
+  const property = await prisma.property.findUnique({
     where: { id },
     include: {
       businessUnit: true,
@@ -84,6 +85,8 @@ export async function getPropertyDetail(id: string) {
       tasks: { orderBy: { createdAt: "desc" }, take: 20 },
     },
   });
+  if (!property) return null;
+  return { ...property, documents: filterVisibleDocuments(user, property.documents) };
 }
 
 export async function createProperty(input: PropertyInput) {

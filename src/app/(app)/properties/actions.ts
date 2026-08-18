@@ -113,8 +113,10 @@ export async function deleteUnitAction(id: string, propertyId: string): Promise<
 export async function uploadPropertyDocumentAction(propertyId: string, _prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Please choose a file to upload." };
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ propertyId }, file);
+    await uploadDocument({ propertyId }, file, accessLevel);
     revalidatePath(`/properties/${propertyId}`);
     return { success: true };
   } catch (err) {

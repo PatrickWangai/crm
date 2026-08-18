@@ -17,6 +17,7 @@ import { UnitFormSheet } from "@/components/properties/unit-form-sheet";
 import { DeleteUnitButton } from "@/components/properties/delete-unit-button";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
+import { DocumentBadges } from "@/components/documents/document-badges";
 import { formatCurrency } from "@/lib/utils";
 import { Building2, MapPin, User as UserIcon, Home, Wrench, FileText, Download } from "lucide-react";
 
@@ -233,7 +234,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                       <div className="flex min-w-0 items-center gap-3">
                         <FileText className="size-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{doc.fileName}</p>
+                          <p className="truncate text-sm font-medium">
+                            {doc.fileName} <DocumentBadges version={doc.version} accessLevel={doc.accessLevel} />
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {formatBytes(doc.fileSizeBytes)} &middot; uploaded {formatDistanceToNow(new Date(doc.createdAt), { addSuffix: true })}
                             {doc.uploadedBy && ` by ${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`}

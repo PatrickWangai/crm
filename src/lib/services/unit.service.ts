@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { UnitInput } from "@/lib/validation/unit";
 
 async function nextUnitCode(): Promise<string> {
@@ -10,9 +11,9 @@ async function nextUnitCode(): Promise<string> {
 }
 
 export async function getUnitDetail(id: string) {
-  await requireAnyPermission(["units.view_all"]);
+  const user = await requireAnyPermission(["units.view_all"]);
 
-  return prisma.unit.findUnique({
+  const unit = await prisma.unit.findUnique({
     where: { id },
     include: {
       property: { select: { id: true, name: true, code: true, city: true } },
@@ -25,6 +26,8 @@ export async function getUnitDetail(id: string) {
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { firstName: true, lastName: true } } } },
     },
   });
+  if (!unit) return null;
+  return { ...unit, documents: filterVisibleDocuments(user, unit.documents) };
 }
 
 export async function createUnit(propertyId: string, input: UnitInput) {

@@ -5,6 +5,7 @@ import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { LeadInput } from "@/lib/validation/lead";
 
 const VIEW_PERMS = ["leads.view_all", "leads.view_own"];
@@ -101,9 +102,9 @@ async function assertCanViewLead(leadId: string) {
 }
 
 export async function getLeadDetail(id: string) {
-  await assertCanViewLead(id);
+  const user = await assertCanViewLead(id);
 
-  return prisma.lead.findUnique({
+  const lead = await prisma.lead.findUnique({
     where: { id },
     include: {
       assignedTo: { select: { id: true, firstName: true, lastName: true, jobTitle: true, email: true } },
@@ -119,6 +120,8 @@ export async function getLeadDetail(id: string) {
       tasks: { orderBy: { createdAt: "desc" }, include: { assignee: { select: { firstName: true, lastName: true } } } },
     },
   });
+  if (!lead) return null;
+  return { ...lead, documents: filterVisibleDocuments(user, lead.documents) };
 }
 
 export async function createLead(input: LeadInput) {

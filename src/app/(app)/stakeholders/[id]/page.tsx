@@ -18,6 +18,7 @@ import { NotesEditor } from "@/components/stakeholders/profile/notes-editor";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
+import { DocumentBadges } from "@/components/documents/document-badges";
 import { logCommunicationAction, uploadDocumentAction, deleteDocumentAction, createStakeholderTaskAction } from "@/app/(app)/stakeholders/actions";
 import { RelatedTaskList } from "@/components/tasks/related-task-list";
 import { initials, formatCurrency } from "@/lib/utils";
@@ -325,7 +326,9 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
                       <div className="flex min-w-0 items-center gap-3">
                         <FileText className="size-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{doc.fileName}</p>
+                          <p className="truncate text-sm font-medium">
+                            {doc.fileName} <DocumentBadges version={doc.version} accessLevel={doc.accessLevel} />
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {formatBytes(doc.fileSizeBytes)} &middot; uploaded {formatDistanceToNow(new Date(doc.createdAt), { addSuffix: true })}
                             {doc.uploadedBy && ` by ${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`}

@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { TicketInput } from "@/lib/validation/ticket";
 
 const VIEW_PERMS = ["tickets.view_all", "tickets.view_own"];
@@ -99,9 +100,9 @@ async function assertCanViewTicket(ticketId: string) {
 }
 
 export async function getTicketDetail(id: string) {
-  await assertCanViewTicket(id);
+  const user = await assertCanViewTicket(id);
 
-  return prisma.ticket.findUnique({
+  const ticket = await prisma.ticket.findUnique({
     where: { id },
     include: {
       stakeholder: { select: { id: true, firstName: true, lastName: true, code: true, phone: true, email: true } },
@@ -115,6 +116,8 @@ export async function getTicketDetail(id: string) {
       tasks: { orderBy: { createdAt: "desc" }, include: { assignee: { select: { firstName: true, lastName: true } } } },
     },
   });
+  if (!ticket) return null;
+  return { ...ticket, documents: filterVisibleDocuments(user, ticket.documents) };
 }
 
 export async function createTicket(input: TicketInput) {

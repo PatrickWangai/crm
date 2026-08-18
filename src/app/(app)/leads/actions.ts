@@ -146,8 +146,10 @@ export async function uploadLeadDocumentAction(leadId: string, _prev: DocumentFo
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Please choose a file to upload." };
   }
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ leadId }, file);
+    await uploadDocument({ leadId }, file, accessLevel);
     revalidatePath(`/leads/${leadId}`);
     return { success: true };
   } catch (err) {

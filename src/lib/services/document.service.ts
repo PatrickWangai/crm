@@ -1,9 +1,33 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { DocumentRelatedType } from "@prisma/client";
-import { requireAnyPermission } from "@/lib/rbac/guard";
+import { requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
+import type { CurrentUser } from "@/lib/auth/session";
 import { recordAudit } from "@/lib/audit/log";
 import { deleteFile, saveFile } from "@/lib/storage/local";
+
+export const DOCUMENT_ACCESS_LEVELS = ["internal", "restricted", "public"] as const;
+export type DocumentAccessLevel = (typeof DOCUMENT_ACCESS_LEVELS)[number];
+
+/**
+ * "restricted" documents are only visible to whoever uploaded them and to
+ * documents.view_all holders (the broad/admin tier) — everyone else who can
+ * otherwise see the parent record (e.g. a view_own-scoped agent) is denied,
+ * both in listings (filterVisibleDocuments) and on the actual download route
+ * (getDocumentForDownload), which is the enforcement point that actually
+ * matters. "internal" (default) and "public" are visible to anyone who can
+ * already view the parent record — unchanged from prior behavior.
+ */
+export function canViewDocument(user: CurrentUser, document: { accessLevel: string; uploadedById: string | null }): boolean {
+  if (document.accessLevel !== "restricted") return true;
+  if (!user) return false;
+  if (document.uploadedById === user.id) return true;
+  return hasPermission(user, "documents.view_all");
+}
+
+export function filterVisibleDocuments<T extends { accessLevel: string; uploadedById: string | null }>(user: CurrentUser, documents: T[]): T[] {
+  return documents.filter((doc) => canViewDocument(user, doc));
+}
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 const ALLOWED_TYPES = new Set([
@@ -51,7 +75,7 @@ function resolveTarget(target: DocumentTarget): ResolvedTarget {
   return { relatedType: "PROPERTY", entityType: "MaintenanceRequest", entityId: target.maintenanceRequestId, relationField: target };
 }
 
-export async function uploadDocument(target: DocumentTarget, file: File) {
+export async function uploadDocument(target: DocumentTarget, file: File, accessLevel: DocumentAccessLevel = "internal") {
   const actor = await requireAnyPermission(["documents.upload"]);
 
   if (file.size === 0) throw new Error("The selected file is empty.");
@@ -64,6 +88,14 @@ export async function uploadDocument(target: DocumentTarget, file: File) {
   const { filePath, fileSizeBytes } = await saveFile(buffer, file.name);
   const resolved = resolveTarget(target);
 
+  // Re-uploading a file with the same name against the same record supersedes
+  // it as a new version, rather than two unrelated rows both claiming v1.
+  const previousVersion = await prisma.document.findFirst({
+    where: { fileName: file.name, relatedType: resolved.relatedType, ...resolved.relationField },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+
   const document = await prisma.document.create({
     data: {
       fileName: file.name,
@@ -72,6 +104,8 @@ export async function uploadDocument(target: DocumentTarget, file: File) {
       filePath,
       relatedType: resolved.relatedType,
       uploadedById: actor.id,
+      version: (previousVersion?.version ?? 0) + 1,
+      accessLevel,
       ...resolved.relationField,
     },
   });
@@ -81,7 +115,7 @@ export async function uploadDocument(target: DocumentTarget, file: File) {
     action: "document.uploaded",
     entityType: resolved.entityType,
     entityId: resolved.entityId,
-    newValue: { fileName: document.fileName, documentId: document.id },
+    newValue: { fileName: document.fileName, documentId: document.id, version: document.version },
   });
 
   return document;
@@ -114,6 +148,10 @@ export async function deleteDocument(documentId: string) {
 }
 
 export async function getDocumentForDownload(documentId: string) {
-  await requireAnyPermission(["documents.view_all", "documents.view_own"]);
-  return prisma.document.findUniqueOrThrow({ where: { id: documentId } });
+  const actor = await requireAnyPermission(["documents.view_all", "documents.view_own"]);
+  const document = await prisma.document.findUniqueOrThrow({ where: { id: documentId } });
+  if (!canViewDocument(actor, document)) {
+    throw new ForbiddenError("This document is restricted to its uploader and users with full document access.");
+  }
+  return document;
 }

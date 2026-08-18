@@ -85,8 +85,10 @@ export async function checkExpiringLeasesAction(): Promise<{ error?: string; fla
 export async function uploadLeaseDocumentAction(leaseId: string, _prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Please choose a file to upload." };
+  const accessLevelRaw = formData.get("accessLevel");
+  const accessLevel = accessLevelRaw === "restricted" || accessLevelRaw === "public" ? accessLevelRaw : "internal";
   try {
-    await uploadDocument({ leaseId }, file);
+    await uploadDocument({ leaseId }, file, accessLevel);
     revalidatePath(`/leases/${leaseId}`);
     return { success: true };
   } catch (err) {

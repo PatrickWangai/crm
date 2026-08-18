@@ -4,6 +4,7 @@ import type { JobCardStatus } from "@prisma/client";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
+import { filterVisibleDocuments } from "@/lib/services/document.service";
 import type { MaintenanceInput } from "@/lib/validation/maintenance";
 
 const VIEW_PERMS = ["maintenance.view_all"];
@@ -66,8 +67,8 @@ export async function listMaintenanceForBoard() {
 }
 
 export async function getMaintenanceDetail(id: string) {
-  await requireAnyPermission(VIEW_PERMS);
-  return prisma.maintenanceRequest.findUnique({
+  const user = await requireAnyPermission(VIEW_PERMS);
+  const request = await prisma.maintenanceRequest.findUnique({
     where: { id },
     include: {
       property: { select: { id: true, name: true, code: true } },
@@ -77,6 +78,8 @@ export async function getMaintenanceDetail(id: string) {
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { firstName: true, lastName: true } } } },
     },
   });
+  if (!request) return null;
+  return { ...request, documents: filterVisibleDocuments(user, request.documents) };
 }
 
 export async function createMaintenanceRequest(input: MaintenanceInput) {
