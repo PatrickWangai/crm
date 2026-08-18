@@ -45,6 +45,18 @@ const REPORTING_LINES: Record<string, string> = {
   "peter.mwangi@masterways.co.ke": "grace.wanjiru@masterways.co.ke",
 };
 
+const SLA_POLICIES: {
+  name: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  responseTimeMinutes: number;
+  resolutionTimeMinutes: number;
+}[] = [
+  { name: "Standard – Low Priority", priority: "LOW", responseTimeMinutes: 480, resolutionTimeMinutes: 4320 },
+  { name: "Standard – Medium Priority", priority: "MEDIUM", responseTimeMinutes: 240, resolutionTimeMinutes: 1440 },
+  { name: "Standard – High Priority", priority: "HIGH", responseTimeMinutes: 60, resolutionTimeMinutes: 480 },
+  { name: "Standard – Urgent Priority", priority: "URGENT", responseTimeMinutes: 15, resolutionTimeMinutes: 120 },
+];
+
 const INTEGRATIONS: { provider: "EZEN" | "SACCO_CBS" | "SMS_GATEWAY" | "EMAIL_GATEWAY" | "WHATSAPP_GATEWAY" | "AI_ASSISTANT"; displayName: string }[] = [
   { provider: "EZEN", displayName: "Ezen Property Management System" },
   { provider: "SACCO_CBS", displayName: "SACCO Core Banking System" },
@@ -188,6 +200,22 @@ async function main() {
     }
   }
 
+  console.log("Seeding default SLA policies...");
+  for (const policy of SLA_POLICIES) {
+    const existing = await prisma.sLA.findFirst({ where: { name: policy.name } });
+    if (!existing) {
+      await prisma.sLA.create({
+        data: {
+          name: policy.name,
+          priority: policy.priority,
+          responseTimeMinutes: policy.responseTimeMinutes,
+          resolutionTimeMinutes: policy.resolutionTimeMinutes,
+          isActive: true,
+        },
+      });
+    }
+  }
+
   console.log("Seeding integration placeholders (mock, ready to wire to real APIs)...");
   for (const integration of INTEGRATIONS) {
     await prisma.integrationConfig.upsert({
@@ -197,7 +225,9 @@ async function main() {
     });
   }
 
-  console.log(`\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users.`);
+  console.log(
+    `\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users, ${SLA_POLICIES.length} SLA policies.`,
+  );
   console.log(`Demo password for every seeded user: ${DEMO_PASSWORD}`);
 }
 

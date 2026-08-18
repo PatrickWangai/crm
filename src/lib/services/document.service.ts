@@ -17,7 +17,13 @@ const ALLOWED_TYPES = new Set([
   "text/plain",
 ]);
 
-export type DocumentTarget = { stakeholderId: string } | { leadId: string };
+export type DocumentTarget = { stakeholderId: string } | { leadId: string } | { ticketId: string };
+
+function relatedTypeFor(target: DocumentTarget) {
+  if ("stakeholderId" in target) return "STAKEHOLDER" as const;
+  if ("leadId" in target) return "LEAD" as const;
+  return "TICKET" as const;
+}
 
 export async function uploadDocument(target: DocumentTarget, file: File) {
   const actor = await requireAnyPermission(["documents.upload"]);
@@ -37,15 +43,16 @@ export async function uploadDocument(target: DocumentTarget, file: File) {
       fileType: file.type || "application/octet-stream",
       fileSizeBytes,
       filePath,
-      relatedType: "stakeholderId" in target ? "STAKEHOLDER" : "LEAD",
+      relatedType: relatedTypeFor(target),
       stakeholderId: "stakeholderId" in target ? target.stakeholderId : undefined,
       leadId: "leadId" in target ? target.leadId : undefined,
+      ticketId: "ticketId" in target ? target.ticketId : undefined,
       uploadedById: actor.id,
     },
   });
 
-  const entityType = "stakeholderId" in target ? "Stakeholder" : "Lead";
-  const entityId = "stakeholderId" in target ? target.stakeholderId : target.leadId;
+  const entityType = "stakeholderId" in target ? "Stakeholder" : "leadId" in target ? "Lead" : "Ticket";
+  const entityId = "stakeholderId" in target ? target.stakeholderId : "leadId" in target ? target.leadId : target.ticketId;
 
   await recordAudit({
     userId: actor.id,
@@ -69,7 +76,7 @@ export async function deleteDocument(documentId: string) {
     userId: actor.id,
     action: "document.deleted",
     entityType: document.relatedType,
-    entityId: document.stakeholderId ?? document.leadId ?? documentId,
+    entityId: document.stakeholderId ?? document.leadId ?? document.ticketId ?? documentId,
     previousValue: { fileName: document.fileName },
   });
 }

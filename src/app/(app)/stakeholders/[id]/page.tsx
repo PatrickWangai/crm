@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getStakeholderActivity, getStakeholderProfile } from "@/lib/services/stakeholder.service";
@@ -7,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +35,7 @@ import {
   Activity as ActivityIcon,
   Download,
   Calendar,
+  Plus,
 } from "lucide-react";
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -260,17 +263,42 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
         {/* Tickets */}
         <TabsContent value="tickets">
           <Card>
-            <CardHeader>
-              <CardTitle>Tickets</CardTitle>
-              <CardDescription>Customer service requests raised by this stakeholder.</CardDescription>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle>Tickets</CardTitle>
+                <CardDescription>Customer service requests raised by this stakeholder.</CardDescription>
+              </div>
+              {hasPermission(user, "tickets.create") && (
+                <Link href="/tickets">
+                  <Button size="sm">
+                    <Plus className="size-3.5" /> Log ticket
+                  </Button>
+                </Link>
+              )}
             </CardHeader>
             <CardContent>
-              <EmptyState
-                icon={TicketIcon}
-                title="No tickets yet"
-                description="Ticket management ships with the Customer Service module."
-                className="border-none py-8"
-              />
+              {profile.tickets.length === 0 ? (
+                <EmptyState icon={TicketIcon} title="No tickets yet" className="border-none py-8" />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {profile.tickets.map((ticket) => (
+                    <li key={ticket.id}>
+                      <Link href={`/tickets/${ticket.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-primary">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{ticket.subject}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {ticket.ticketNumber} &middot; {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <StatusBadge status={ticket.priority} />
+                          <StatusBadge status={ticket.status} />
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

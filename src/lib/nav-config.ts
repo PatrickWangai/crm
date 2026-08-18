@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList, Contact, Users2 } from "lucide-react";
+import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList, Contact, Users2, Ticket, Timer } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -42,12 +42,24 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Customer Care",
+    items: [
+      {
+        label: "Tickets",
+        href: "/tickets",
+        icon: Ticket,
+        permission: ["tickets.view_all", "tickets.view_own"],
+      },
+    ],
+  },
+  {
     label: "Administration",
     items: [
       { label: "Users", href: "/admin/users", icon: Users, permission: "users.manage" },
       { label: "Roles & Permissions", href: "/admin/roles", icon: ShieldCheck, permission: "roles.manage" },
       { label: "Departments", href: "/admin/departments", icon: Building2, permission: "departments.manage" },
       { label: "Business Units", href: "/admin/business-units", icon: Landmark, permission: "departments.manage" },
+      { label: "SLA Policies", href: "/admin/sla", icon: Timer, permission: "settings.manage" },
       { label: "Audit Log", href: "/admin/audit-log", icon: ClipboardList, permission: "audit_logs.view" },
     ],
   },

@@ -4,7 +4,7 @@ import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import type { CommunicationInput } from "@/lib/validation/communication";
 
-export type CommunicationTarget = { stakeholderId: string } | { leadId: string };
+export type CommunicationTarget = { stakeholderId: string } | { leadId: string } | { ticketId: string };
 
 export async function logCommunication(target: CommunicationTarget, input: CommunicationInput) {
   const actor = await requireAnyPermission(["communications.create"]);
@@ -13,6 +13,7 @@ export async function logCommunication(target: CommunicationTarget, input: Commu
     data: {
       stakeholderId: "stakeholderId" in target ? target.stakeholderId : undefined,
       relatedLeadId: "leadId" in target ? target.leadId : undefined,
+      relatedTicketId: "ticketId" in target ? target.ticketId : undefined,
       channel: input.channel,
       direction: input.direction,
       subject: input.subject || undefined,
@@ -22,8 +23,8 @@ export async function logCommunication(target: CommunicationTarget, input: Commu
     },
   });
 
-  const entityType = "stakeholderId" in target ? "Stakeholder" : "Lead";
-  const entityId = "stakeholderId" in target ? target.stakeholderId : target.leadId;
+  const entityType = "stakeholderId" in target ? "Stakeholder" : "leadId" in target ? "Lead" : "Ticket";
+  const entityId = "stakeholderId" in target ? target.stakeholderId : "leadId" in target ? target.leadId : target.ticketId;
 
   await recordAudit({
     userId: actor.id,

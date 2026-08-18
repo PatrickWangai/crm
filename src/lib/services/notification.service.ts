@@ -1,6 +1,30 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
+import type { NotificationType } from "@prisma/client";
 import { requireAuth } from "@/lib/rbac/guard";
+
+export interface CreateNotificationInput {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  relatedUrl?: string;
+}
+
+/**
+ * Called by other services on behalf of the acting user's target (e.g. the
+ * agent a lead/ticket/task was assigned to) — intentionally has no permission
+ * gate of its own since the caller already enforced the relevant permission.
+ * Never throws — a failed notification must not break the calling action.
+ */
+export async function createNotification(input: CreateNotificationInput) {
+  try {
+    return await prisma.notification.create({ data: input });
+  } catch (err) {
+    console.error("Failed to create notification", err);
+    return null;
+  }
+}
 
 export async function listMyNotifications(limit = 10) {
   const user = await requireAuth();

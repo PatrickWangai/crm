@@ -26,3 +26,13 @@ export async function listUserOptions() {
   });
   return users.map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}`, jobTitle: u.jobTitle }));
 }
+
+export async function listStakeholderOptions() {
+  await requireAuth();
+  const stakeholders = await prisma.stakeholder.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    select: { id: true, firstName: true, lastName: true, code: true },
+  });
+  return stakeholders.map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName} (${s.code})` }));
+}
