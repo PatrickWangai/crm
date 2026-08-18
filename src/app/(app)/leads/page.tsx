@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAnyPermissionOrRedirect, hasPermission } from "@/lib/rbac/guard";
 import { listLeads, listLeadsForBoard } from "@/lib/services/lead.service";
-import { listBusinessUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { listBusinessUnitOptions, listPropertyOptions, listUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -32,7 +32,12 @@ export default async function LeadsPage({
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
   const view = sp.view === "kanban" ? "kanban" : "table";
 
-  const [businessUnits, staff] = await Promise.all([listBusinessUnitOptions(), listUserOptions()]);
+  const [businessUnits, staff, properties, units] = await Promise.all([
+    listBusinessUnitOptions(),
+    listUserOptions(),
+    listPropertyOptions(),
+    listUnitOptions(),
+  ]);
   const canCreate = hasPermission(user, "leads.create");
 
   return (
@@ -47,14 +52,40 @@ export default async function LeadsPage({
               <CsvImportDialog
                 title="Bulk import leads"
                 description="Capture multiple leads at once from a CSV file."
-                templateHeaders={["firstName", "lastName", "email", "phone", "source", "sourceDetail", "requirements", "businessUnitCode", "assignedToEmail"]}
+                templateHeaders={[
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "phone",
+                  "source",
+                  "sourceDetail",
+                  "requirements",
+                  "businessUnitCode",
+                  "assignedToEmail",
+                  "interestedPropertyCode",
+                  "interestedUnitCode",
+                ]}
                 templateExample={[
-                  ["Peter", "Mwaura", "peter.mwaura@example.com", "+254722334455", "WEBSITE", "", "3BR apartment in Kilimani", "MRE", "faith.njoki@masterways.co.ke"],
+                  [
+                    "Peter",
+                    "Mwaura",
+                    "peter.mwaura@example.com",
+                    "+254722334455",
+                    "WEBSITE",
+                    "",
+                    "3BR apartment in Kilimani",
+                    "MRE",
+                    "faith.njoki@masterways.co.ke",
+                    "",
+                    "",
+                  ],
                 ]}
                 action={importLeadsAction}
               />
             )}
-            {canCreate && <LeadFormSheet mode="create" businessUnits={businessUnits} staff={staff} redirectOnCreate />}
+            {canCreate && (
+              <LeadFormSheet mode="create" businessUnits={businessUnits} staff={staff} properties={properties} units={units} redirectOnCreate />
+            )}
           </div>
         }
       />

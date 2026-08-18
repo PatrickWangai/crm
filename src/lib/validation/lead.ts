@@ -35,6 +35,8 @@ export const leadSchema = z.object({
   businessUnitId: z.string().optional().or(z.literal("")),
   assignedToId: z.string().optional().or(z.literal("")),
   nextFollowUpAt: z.string().optional().or(z.literal("")),
+  interestedPropertyId: z.string().optional().or(z.literal("")),
+  interestedUnitId: z.string().optional().or(z.literal("")),
 });
 
 export type LeadInput = z.infer<typeof leadSchema>;

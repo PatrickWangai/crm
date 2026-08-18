@@ -108,6 +108,8 @@ export async function getLeadDetail(id: string) {
     include: {
       assignedTo: { select: { id: true, firstName: true, lastName: true, jobTitle: true, email: true } },
       businessUnit: true,
+      interestedProperty: { select: { id: true, name: true, code: true } },
+      interestedUnit: { select: { id: true, unitNumber: true, code: true, property: { select: { name: true } } } },
       campaign: { select: { id: true, name: true } },
       convertedStakeholder: { select: { id: true, code: true, firstName: true, lastName: true } },
       statusHistory: { orderBy: { changedAt: "desc" }, include: { changedBy: { select: { firstName: true, lastName: true } } } },
@@ -136,6 +138,8 @@ export async function createLead(input: LeadInput) {
       businessUnitId: cleanId(input.businessUnitId) ?? undefined,
       assignedToId: cleanId(input.assignedToId) ?? undefined,
       nextFollowUpAt: input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : undefined,
+      interestedPropertyId: cleanId(input.interestedPropertyId) ?? undefined,
+      interestedUnitId: cleanId(input.interestedUnitId) ?? undefined,
       lastInteractionAt: new Date(),
       status: "NEW",
     },
@@ -183,6 +187,8 @@ export async function updateLead(id: string, input: LeadInput) {
       businessUnitId: cleanId(input.businessUnitId),
       assignedToId: cleanId(input.assignedToId),
       nextFollowUpAt: input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : null,
+      interestedPropertyId: cleanId(input.interestedPropertyId),
+      interestedUnitId: cleanId(input.interestedUnitId),
     },
   });
 

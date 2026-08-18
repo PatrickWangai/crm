@@ -177,6 +177,11 @@ export async function importLeadsCsv(csvText: string): Promise<ImportResult> {
     const businessUnitId = await resolveBusinessUnitId(cell(row, "businessUnitCode"));
     const assignedToId = await resolveUserIdByEmail(cell(row, "assignedToEmail"));
 
+    const interestedPropertyCode = cell(row, "interestedPropertyCode");
+    const interestedPropertyId = interestedPropertyCode ? await resolvePropertyIdByCode(interestedPropertyCode) : "";
+    const interestedUnitCode = cell(row, "interestedUnitCode");
+    const interestedUnitId = interestedUnitCode ? await resolveUnitIdByCode(interestedUnitCode) : "";
+
     await createLead({
       firstName: requireCell(row, "firstName"),
       lastName: requireCell(row, "lastName"),
@@ -188,6 +193,8 @@ export async function importLeadsCsv(csvText: string): Promise<ImportResult> {
       businessUnitId,
       assignedToId,
       nextFollowUpAt: "",
+      interestedPropertyId,
+      interestedUnitId,
     });
   });
 

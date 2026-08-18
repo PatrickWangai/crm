@@ -40,6 +40,8 @@ function toInput(formData: FormData) {
     businessUnitId: formData.get("businessUnitId"),
     assignedToId: formData.get("assignedToId"),
     nextFollowUpAt: formData.get("nextFollowUpAt"),
+    interestedPropertyId: formData.get("interestedPropertyId"),
+    interestedUnitId: formData.get("interestedUnitId"),
   };
 }
 

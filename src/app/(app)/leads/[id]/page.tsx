@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getLeadDetail } from "@/lib/services/lead.service";
-import { listBusinessUnitOptions, listDepartmentOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { listBusinessUnitOptions, listDepartmentOptions, listPropertyOptions, listUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { isAiAssistantEnabled, suggestNextActionForLead } from "@/lib/services/ai.service";
 import { AiSuggestionCard } from "@/components/leads/ai-suggestion-card";
 import { logLeadCommunicationAction, uploadLeadDocumentAction, deleteLeadDocumentAction, createLeadTaskAction } from "@/app/(app)/leads/actions";
@@ -77,13 +77,17 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
   let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
+  let properties: Awaited<ReturnType<typeof listPropertyOptions>>;
+  let units: Awaited<ReturnType<typeof listUnitOptions>>;
   let aiEnabled: boolean;
   try {
-    [lead, businessUnits, staff, departments, aiEnabled] = await Promise.all([
+    [lead, businessUnits, staff, departments, properties, units, aiEnabled] = await Promise.all([
       getLeadDetail(id),
       listBusinessUnitOptions(),
       listUserOptions(),
       listDepartmentOptions(),
+      listPropertyOptions(),
+      listUnitOptions(),
       isAiAssistantEnabled(),
     ]);
   } catch (err) {
@@ -146,6 +150,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 leadId={lead.id}
                 businessUnits={businessUnits}
                 staff={staff}
+                properties={properties}
+                units={units}
                 defaultValues={{
                   firstName: lead.firstName,
                   lastName: lead.lastName,
@@ -157,6 +163,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   businessUnitId: lead.businessUnitId,
                   assignedToId: lead.assignedToId,
                   nextFollowUpAt: null,
+                  interestedPropertyId: lead.interestedPropertyId,
+                  interestedUnitId: lead.interestedUnitId,
                 }}
               />
             )}
@@ -208,7 +216,40 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
 
-          <Card className="sm:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Interested in</CardTitle>
+              <CardDescription>Property/unit this lead is interested in.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {lead.interestedProperty ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Building2 className="size-4" /> Property
+                  </span>
+                  <Link href={`/properties/${lead.interestedProperty.id}`} className="font-medium text-primary hover:underline">
+                    {lead.interestedProperty.name}
+                  </Link>
+                </div>
+              ) : (
+                <InfoRow icon={Building2} label="Property" value="Not specified" />
+              )}
+              {lead.interestedUnit ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Building2 className="size-4" /> Unit
+                  </span>
+                  <Link href={`/units/${lead.interestedUnit.id}`} className="font-medium text-primary hover:underline">
+                    {lead.interestedUnit.property.name} — Unit {lead.interestedUnit.unitNumber}
+                  </Link>
+                </div>
+              ) : (
+                <InfoRow icon={Building2} label="Unit" value="Not specified" />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader>
               <CardTitle>Requirements</CardTitle>
               <CardDescription>What this lead is looking for.</CardDescription>

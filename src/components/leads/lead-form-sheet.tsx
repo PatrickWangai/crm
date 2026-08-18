@@ -57,6 +57,8 @@ export interface LeadDefaults {
   businessUnitId: string | null;
   assignedToId: string | null;
   nextFollowUpAt: string | null;
+  interestedPropertyId: string | null;
+  interestedUnitId: string | null;
 }
 
 export function LeadFormSheet({
@@ -64,6 +66,8 @@ export function LeadFormSheet({
   leadId,
   businessUnits,
   staff,
+  properties,
+  units,
   defaultValues,
   trigger,
   redirectOnCreate,
@@ -72,6 +76,8 @@ export function LeadFormSheet({
   leadId?: string;
   businessUnits: Option[];
   staff: Option[];
+  properties: Option[];
+  units: Option[];
   defaultValues?: LeadDefaults;
   trigger?: React.ReactNode;
   redirectOnCreate?: boolean;
@@ -83,6 +89,8 @@ export function LeadFormSheet({
   const [source, setSource] = useState(defaultValues?.source ?? "WEBSITE");
   const [businessUnitId, setBusinessUnitId] = useState(defaultValues?.businessUnitId ?? "");
   const [assignedToId, setAssignedToId] = useState(defaultValues?.assignedToId ?? "");
+  const [interestedPropertyId, setInterestedPropertyId] = useState(defaultValues?.interestedPropertyId ?? "");
+  const [interestedUnitId, setInterestedUnitId] = useState(defaultValues?.interestedUnitId ?? "");
 
   const [prevState, setPrevState] = useState(state);
   if (state !== prevState) {
@@ -186,6 +194,40 @@ export function LeadFormSheet({
                   {businessUnits.map((bu) => (
                     <SelectItem key={bu.id} value={bu.id}>
                       {bu.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="interestedPropertyId">Interested property</Label>
+              <input type="hidden" name="interestedPropertyId" value={interestedPropertyId} />
+              <Select value={interestedPropertyId} onValueChange={setInterestedPropertyId}>
+                <SelectTrigger id="interestedPropertyId">
+                  <SelectValue placeholder="No specific property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="interestedUnitId">Interested unit</Label>
+              <input type="hidden" name="interestedUnitId" value={interestedUnitId} />
+              <Select value={interestedUnitId} onValueChange={setInterestedUnitId}>
+                <SelectTrigger id="interestedUnitId">
+                  <SelectValue placeholder="No specific unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
