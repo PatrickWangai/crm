@@ -287,6 +287,7 @@ export async function addTicketComment(id: string, comment: string, isInternal: 
  * so this is meant to be triggered a few times a day, not on every request.
  */
 export async function checkSlaRisk() {
+  await requireAnyPermission(["tickets.assign"]);
   if (!(await isWorkflowActive("ticket.sla_risk_check"))) return 0;
 
   const openTickets = await prisma.ticket.findMany({

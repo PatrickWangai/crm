@@ -336,6 +336,7 @@ export async function deleteLead(id: string) {
 
 /** Notifies assigned agents of leads whose next follow-up is due today or overdue. Safe to call repeatedly — intended for a scheduled job. */
 export async function flagFollowUpsDue() {
+  await requireAnyPermission(["leads.assign"]);
   if (!(await isWorkflowActive("lead.follow_up_check"))) return 0;
 
   const due = await prisma.lead.findMany({

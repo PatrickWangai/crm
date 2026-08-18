@@ -166,6 +166,7 @@ export async function updateLeaseStatus(id: string, status: LeaseStatus) {
 
 /** Flags leases expiring within the given number of days as PENDING_RENEWAL and notifies property managers. Intended for a scheduled job; safe to call repeatedly. */
 export async function flagExpiringLeases(withinDays = 30) {
+  await requireAnyPermission(["leases.manage"]);
   if (!(await isWorkflowActive("lease.renewal_check"))) return 0;
 
   const cutoff = new Date(Date.now() + withinDays * 24 * 60 * 60 * 1000);
@@ -181,6 +182,19 @@ export async function flagExpiringLeases(withinDays = 30) {
 
   for (const lease of expiring) {
     await prisma.lease.update({ where: { id: lease.id }, data: { renewalReminderSentAt: new Date() } });
+
+    const taskCode = `TSK-${String((await prisma.task.count()) + 1).padStart(6, "0")}`;
+    await prisma.task.create({
+      data: {
+        code: taskCode,
+        title: `Renew or terminate lease ${lease.code}`,
+        description: `Unit ${lease.unit.unitNumber} at ${lease.unit.property.name} — lease expires ${lease.endDate.toLocaleDateString()}. Confirm renewal terms with the tenant or plan handover.`,
+        priority: "HIGH",
+        dueDate: lease.endDate,
+        relatedPropertyId: lease.unit.propertyId,
+      },
+    });
+
     for (const manager of managers) {
       await createNotification({
         userId: manager.id,

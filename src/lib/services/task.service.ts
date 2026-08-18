@@ -225,6 +225,7 @@ export async function deleteTask(id: string) {
 
 /** Flags tasks past their due date as OVERDUE and notifies the assignee. Intended for a scheduled job; safe to call repeatedly. */
 export async function flagOverdueTasks() {
+  await requireAnyPermission(["tasks.assign"]);
   if (!(await isWorkflowActive("task.overdue_check"))) return 0;
 
   const overdue = await prisma.task.findMany({

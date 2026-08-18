@@ -39,7 +39,7 @@ export default async function TasksPage({
         description="Follow-ups and action items across the organization."
         actions={
           <div className="flex items-center gap-2">
-            <CheckOverdueTasksButton />
+            {hasPermission(user, "tasks.assign") && <CheckOverdueTasksButton />}
             {canCreate && <TaskFormSheet mode="create" staff={staff} departments={departments} />}
           </div>
         }
