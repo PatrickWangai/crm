@@ -17,6 +17,7 @@ import {
   CheckSquare,
   Bell,
   MessageSquare,
+  BarChart3,
 } from "lucide-react";
 
 export interface NavItem {
@@ -42,6 +43,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
+      { label: "Reports & Analytics", href: "/reports", icon: BarChart3, permission: "reports.view" },
       { label: "Notifications", href: "/notifications", icon: Bell, permission: "notifications.view_own" },
       { label: "Tasks", href: "/tasks", icon: CheckSquare, permission: ["tasks.view_all", "tasks.view_own"] },
     ],
