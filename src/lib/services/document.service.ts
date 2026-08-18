@@ -17,7 +17,9 @@ const ALLOWED_TYPES = new Set([
   "text/plain",
 ]);
 
-export async function uploadStakeholderDocument(stakeholderId: string, file: File) {
+export type DocumentTarget = { stakeholderId: string } | { leadId: string };
+
+export async function uploadDocument(target: DocumentTarget, file: File) {
   const actor = await requireAnyPermission(["documents.upload"]);
 
   if (file.size === 0) throw new Error("The selected file is empty.");
@@ -35,17 +37,21 @@ export async function uploadStakeholderDocument(stakeholderId: string, file: Fil
       fileType: file.type || "application/octet-stream",
       fileSizeBytes,
       filePath,
-      relatedType: "STAKEHOLDER",
-      stakeholderId,
+      relatedType: "stakeholderId" in target ? "STAKEHOLDER" : "LEAD",
+      stakeholderId: "stakeholderId" in target ? target.stakeholderId : undefined,
+      leadId: "leadId" in target ? target.leadId : undefined,
       uploadedById: actor.id,
     },
   });
 
+  const entityType = "stakeholderId" in target ? "Stakeholder" : "Lead";
+  const entityId = "stakeholderId" in target ? target.stakeholderId : target.leadId;
+
   await recordAudit({
     userId: actor.id,
     action: "document.uploaded",
-    entityType: "Stakeholder",
-    entityId: stakeholderId,
+    entityType,
+    entityId,
     newValue: { fileName: document.fileName, documentId: document.id },
   });
 
@@ -63,7 +69,7 @@ export async function deleteDocument(documentId: string) {
     userId: actor.id,
     action: "document.deleted",
     entityType: document.relatedType,
-    entityId: document.stakeholderId ?? documentId,
+    entityId: document.stakeholderId ?? document.leadId ?? documentId,
     previousValue: { fileName: document.fileName },
   });
 }

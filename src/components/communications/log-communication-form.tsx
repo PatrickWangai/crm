@@ -16,7 +16,7 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { logCommunicationAction, type CommunicationFormState } from "@/app/(app)/stakeholders/actions";
+import type { CommunicationFormState } from "@/lib/validation/communication";
 
 const CHANNELS = ["CALL", "EMAIL", "SMS", "WHATSAPP", "MEETING", "NOTE", "WALK_IN"];
 const CHANNEL_LABELS: Record<string, string> = {
@@ -46,9 +46,10 @@ function SubmitButton() {
   );
 }
 
-export function LogCommunicationForm({ stakeholderId }: { stakeholderId: string }) {
+type CommunicationAction = (prevState: CommunicationFormState, formData: FormData) => Promise<CommunicationFormState>;
+
+export function LogCommunicationForm({ action, description }: { action: CommunicationAction; description: string }) {
   const [open, setOpen] = useState(false);
-  const action = logCommunicationAction.bind(null, stakeholderId);
   const [state, formAction] = useActionState(action, initialState);
   const [channel, setChannel] = useState("CALL");
   const [direction, setDirection] = useState("OUTBOUND");
@@ -75,7 +76,7 @@ export function LogCommunicationForm({ stakeholderId }: { stakeholderId: string 
         <form ref={formRef} action={formAction} className="space-y-4" noValidate>
           <DialogHeader>
             <DialogTitle>Log an interaction</DialogTitle>
-            <DialogDescription>Record a call, email, meeting or other touchpoint with this stakeholder.</DialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
 
           {state.error && (

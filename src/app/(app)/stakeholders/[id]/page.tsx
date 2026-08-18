@@ -13,9 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StakeholderFormSheet } from "@/components/stakeholders/stakeholder-form-sheet";
 import { DeleteStakeholderButton } from "@/components/stakeholders/delete-stakeholder-button";
 import { NotesEditor } from "@/components/stakeholders/profile/notes-editor";
-import { LogCommunicationForm } from "@/components/stakeholders/profile/log-communication-form";
-import { UploadDocumentForm } from "@/components/stakeholders/profile/upload-document-form";
-import { DeleteDocumentButton } from "@/components/stakeholders/profile/delete-document-button";
+import { LogCommunicationForm } from "@/components/communications/log-communication-form";
+import { UploadDocumentForm } from "@/components/documents/upload-document-form";
+import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
+import { logCommunicationAction, uploadDocumentAction, deleteDocumentAction } from "@/app/(app)/stakeholders/actions";
 import { initials, formatCurrency } from "@/lib/utils";
 import {
   Mail,
@@ -223,7 +224,12 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
                 <CardTitle>Communication history</CardTitle>
                 <CardDescription>Calls, emails, SMS, WhatsApp, meetings and notes with this stakeholder.</CardDescription>
               </div>
-              {canLogCommunication && <LogCommunicationForm stakeholderId={profile.id} />}
+              {canLogCommunication && (
+                <LogCommunicationForm
+                  action={logCommunicationAction.bind(null, profile.id)}
+                  description="Record a call, email, meeting or other touchpoint with this stakeholder."
+                />
+              )}
             </CardHeader>
             <CardContent>
               {profile.communications.length === 0 ? (
@@ -277,7 +283,7 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
               <CardDescription>KYC documents, agreements and correspondence for this stakeholder.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {canUpload && <UploadDocumentForm stakeholderId={profile.id} />}
+              {canUpload && <UploadDocumentForm action={uploadDocumentAction.bind(null, profile.id)} />}
               {profile.documents.length === 0 ? (
                 <EmptyState icon={FileText} title="No documents uploaded yet" className="border-none py-8" />
               ) : (
@@ -300,7 +306,9 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
                             <Download className="size-4" />
                           </button>
                         </a>
-                        {canDeleteDocs && <DeleteDocumentButton documentId={doc.id} stakeholderId={profile.id} fileName={doc.fileName} />}
+                        {canDeleteDocs && (
+                          <DeleteDocumentButton fileName={doc.fileName} deleteAction={deleteDocumentAction.bind(null, doc.id, profile.id)} />
+                        )}
                       </div>
                     </li>
                   ))}

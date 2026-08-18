@@ -785,8 +785,8 @@ model Workflow {
 
 model Communication {
   id            String                 @id @default(cuid())
-  stakeholderId String
-  stakeholder   Stakeholder            @relation(fields: [stakeholderId], references: [id])
+  stakeholderId String?
+  stakeholder   Stakeholder?           @relation(fields: [stakeholderId], references: [id])
   channel       CommunicationChannel
   direction     CommunicationDirection
   subject       String?

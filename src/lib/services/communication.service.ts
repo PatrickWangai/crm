@@ -2,14 +2,17 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
-import type { CommunicationInput } from "@/lib/validation/stakeholder";
+import type { CommunicationInput } from "@/lib/validation/communication";
 
-export async function logCommunication(stakeholderId: string, input: CommunicationInput) {
+export type CommunicationTarget = { stakeholderId: string } | { leadId: string };
+
+export async function logCommunication(target: CommunicationTarget, input: CommunicationInput) {
   const actor = await requireAnyPermission(["communications.create"]);
 
   const record = await prisma.communication.create({
     data: {
-      stakeholderId,
+      stakeholderId: "stakeholderId" in target ? target.stakeholderId : undefined,
+      relatedLeadId: "leadId" in target ? target.leadId : undefined,
       channel: input.channel,
       direction: input.direction,
       subject: input.subject || undefined,
@@ -19,11 +22,14 @@ export async function logCommunication(stakeholderId: string, input: Communicati
     },
   });
 
+  const entityType = "stakeholderId" in target ? "Stakeholder" : "Lead";
+  const entityId = "stakeholderId" in target ? target.stakeholderId : target.leadId;
+
   await recordAudit({
     userId: actor.id,
     action: "communication.logged",
-    entityType: "Stakeholder",
-    entityId: stakeholderId,
+    entityType,
+    entityId,
     newValue: { channel: record.channel, direction: record.direction },
   });
 

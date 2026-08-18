@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { stakeholderSchema, communicationSchema } from "@/lib/validation/stakeholder";
+import { stakeholderSchema } from "@/lib/validation/stakeholder";
+import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
 import {
   createStakeholder,
   deleteStakeholder,
@@ -9,7 +10,7 @@ import {
   updateStakeholderNotes,
 } from "@/lib/services/stakeholder.service";
 import { logCommunication } from "@/lib/services/communication.service";
-import { deleteDocument, uploadStakeholderDocument } from "@/lib/services/document.service";
+import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 
 export interface StakeholderFormState {
   error?: string;
@@ -80,12 +81,6 @@ export async function updateNotesAction(id: string, notes: string) {
   revalidatePath(`/stakeholders/${id}`);
 }
 
-export interface CommunicationFormState {
-  error?: string;
-  fieldErrors?: Record<string, string[]>;
-  success?: boolean;
-}
-
 export async function logCommunicationAction(
   stakeholderId: string,
   _prev: CommunicationFormState,
@@ -100,17 +95,12 @@ export async function logCommunicationAction(
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   try {
-    await logCommunication(stakeholderId, parsed.data);
+    await logCommunication({ stakeholderId }, parsed.data);
     revalidatePath(`/stakeholders/${stakeholderId}`);
     return { success: true };
   } catch (err) {
     return { error: friendlyError(err) };
   }
-}
-
-export interface DocumentFormState {
-  error?: string;
-  success?: boolean;
 }
 
 export async function uploadDocumentAction(stakeholderId: string, _prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
@@ -119,7 +109,7 @@ export async function uploadDocumentAction(stakeholderId: string, _prev: Documen
     return { error: "Please choose a file to upload." };
   }
   try {
-    await uploadStakeholderDocument(stakeholderId, file);
+    await uploadDocument({ stakeholderId }, file);
     revalidatePath(`/stakeholders/${stakeholderId}`);
     return { success: true };
   } catch (err) {

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList, Contact } from "lucide-react";
+import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList, Contact, Users2 } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -27,6 +27,12 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "CRM",
     items: [
+      {
+        label: "Leads",
+        href: "/leads",
+        icon: Users2,
+        permission: ["leads.view_all", "leads.view_own"],
+      },
       {
         label: "Stakeholders",
         href: "/stakeholders",

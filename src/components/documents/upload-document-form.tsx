@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { uploadDocumentAction, type DocumentFormState } from "@/app/(app)/stakeholders/actions";
+import type { DocumentFormState } from "@/lib/validation/communication";
 
 const initialState: DocumentFormState = {};
 
@@ -17,8 +17,9 @@ function SubmitButton() {
   );
 }
 
-export function UploadDocumentForm({ stakeholderId }: { stakeholderId: string }) {
-  const action = uploadDocumentAction.bind(null, stakeholderId);
+type UploadAction = (prevState: DocumentFormState, formData: FormData) => Promise<DocumentFormState>;
+
+export function UploadDocumentForm({ action }: { action: UploadAction }) {
   const [state, formAction] = useActionState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
