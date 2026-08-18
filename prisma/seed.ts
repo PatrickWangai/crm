@@ -1,0 +1,211 @@
+import { PrismaClient, type BusinessUnitCode } from "@prisma/client";
+import { hashPassword } from "../src/lib/auth/password";
+import { ROLES } from "../src/lib/rbac/roles";
+import { PERMISSIONS, ROLE_PERMISSIONS } from "../src/lib/rbac/permissions";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../src/lib/demo-accounts";
+
+const prisma = new PrismaClient();
+
+const BUSINESS_UNITS: { code: BusinessUnitCode; name: string; description: string }[] = [
+  { code: "MGC", name: "Masterways Group of Companies", description: "Corporate / shared services" },
+  { code: "MRE", name: "Masterways Real Estate", description: "Property sales, leasing and management" },
+  { code: "MSL", name: "Masterways Sacco Limited", description: "Savings and Credit Cooperative" },
+  { code: "MIA", name: "Masterways Insurance Agency", description: "Insurance products and brokerage" },
+  { code: "MHL", name: "Masterways Housing Limited", description: "Housing cooperative and developments" },
+];
+
+const DEPARTMENTS: { code: string; name: string; businessUnit: BusinessUnitCode }[] = [
+  { code: "EXEC", name: "Executive Office", businessUnit: "MGC" },
+  { code: "AUDIT", name: "Internal Audit", businessUnit: "MGC" },
+  { code: "SALES", name: "Sales & Marketing", businessUnit: "MGC" },
+  { code: "CARE", name: "Customer Care", businessUnit: "MGC" },
+  { code: "FIN", name: "Finance", businessUnit: "MGC" },
+  { code: "HR", name: "Human Resource & Administration", businessUnit: "MGC" },
+  { code: "ICT", name: "ICT Department", businessUnit: "MGC" },
+  { code: "PROPERTY", name: "Property Management", businessUnit: "MRE" },
+  { code: "CREDIT", name: "Credit & Risk", businessUnit: "MSL" },
+];
+
+// email -> reportingTo email
+const REPORTING_LINES: Record<string, string> = {
+  "esther.achieng@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "samuel.kamau@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "mercy.chebet@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "victor.mutiso@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "anne.wairimu@masterways.co.ke": "diana.auma@masterways.co.ke",
+  "brian.otieno@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "faith.njoki@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "kevin.omondi@masterways.co.ke": "diana.auma@masterways.co.ke",
+  "diana.auma@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "joseph.kariuki@masterways.co.ke": "anne.wairimu@masterways.co.ke",
+  "caroline.nduta@masterways.co.ke": "esther.achieng@masterways.co.ke",
+  "felix.mbugua@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
+  "ruth.akinyi@masterways.co.ke": "esther.achieng@masterways.co.ke",
+  "lucy.wambui@masterways.co.ke": "samuel.kamau@masterways.co.ke",
+  "peter.mwangi@masterways.co.ke": "grace.wanjiru@masterways.co.ke",
+};
+
+const INTEGRATIONS: { provider: "EZEN" | "SACCO_CBS" | "SMS_GATEWAY" | "EMAIL_GATEWAY" | "WHATSAPP_GATEWAY" | "AI_ASSISTANT"; displayName: string }[] = [
+  { provider: "EZEN", displayName: "Ezen Property Management System" },
+  { provider: "SACCO_CBS", displayName: "SACCO Core Banking System" },
+  { provider: "SMS_GATEWAY", displayName: "SMS Gateway" },
+  { provider: "EMAIL_GATEWAY", displayName: "Email Gateway" },
+  { provider: "WHATSAPP_GATEWAY", displayName: "WhatsApp Business API" },
+  { provider: "AI_ASSISTANT", displayName: "AI Assistant / Automation" },
+];
+
+async function main() {
+  console.log("Seeding business units...");
+  const businessUnitByCode = new Map<string, string>();
+  for (const bu of BUSINESS_UNITS) {
+    const record = await prisma.businessUnit.upsert({
+      where: { code: bu.code },
+      update: { name: bu.name, description: bu.description },
+      create: bu,
+    });
+    businessUnitByCode.set(bu.code, record.id);
+  }
+
+  console.log("Seeding departments...");
+  const departmentByCode = new Map<string, string>();
+  for (const dept of DEPARTMENTS) {
+    const businessUnitId = businessUnitByCode.get(dept.businessUnit);
+    const record = await prisma.department.upsert({
+      where: { code: dept.code },
+      update: { name: dept.name, businessUnitId },
+      create: { code: dept.code, name: dept.name, businessUnitId },
+    });
+    departmentByCode.set(dept.code, record.id);
+  }
+
+  console.log("Seeding roles...");
+  const roleBySlug = new Map<string, string>();
+  for (const role of ROLES) {
+    const record = await prisma.role.upsert({
+      where: { slug: role.slug },
+      update: { name: role.name, description: role.description },
+      create: { slug: role.slug, name: role.name, description: role.description },
+    });
+    roleBySlug.set(role.slug, record.id);
+  }
+
+  console.log("Seeding permissions...");
+  const permissionByCode = new Map<string, string>();
+  for (const perm of PERMISSIONS) {
+    const record = await prisma.permission.upsert({
+      where: { code: perm.code },
+      update: { module: perm.module, action: perm.action, description: perm.description },
+      create: perm,
+    });
+    permissionByCode.set(perm.code, record.id);
+  }
+
+  console.log("Wiring role -> permission grants...");
+  for (const [roleSlug, codes] of Object.entries(ROLE_PERMISSIONS)) {
+    const roleId = roleBySlug.get(roleSlug);
+    if (!roleId) {
+      console.warn(`  ! No role found for slug "${roleSlug}", skipping.`);
+      continue;
+    }
+    for (const code of codes) {
+      const permissionId = permissionByCode.get(code);
+      if (!permissionId) {
+        console.warn(`  ! No permission found for code "${code}", skipping.`);
+        continue;
+      }
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId, permissionId } },
+        update: {},
+        create: { roleId, permissionId },
+      });
+    }
+  }
+
+  console.log("Seeding demo users...");
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
+  const userIdByEmail = new Map<string, string>();
+
+  let sequence = 1;
+  for (const account of DEMO_ACCOUNTS) {
+    const roleId = roleBySlug.get(account.roleSlug);
+    if (!roleId) throw new Error(`Missing role for slug ${account.roleSlug}`);
+
+    const employeeId = `MW-${String(sequence).padStart(4, "0")}`;
+    sequence += 1;
+
+    const user = await prisma.user.upsert({
+      where: { email: account.email },
+      update: {
+        firstName: account.firstName,
+        lastName: account.lastName,
+        roleId,
+        departmentId: account.departmentCode ? departmentByCode.get(account.departmentCode) : undefined,
+        businessUnitId: account.businessUnitCode ? businessUnitByCode.get(account.businessUnitCode) : undefined,
+        jobTitle: account.jobTitle,
+      },
+      create: {
+        employeeId,
+        firstName: account.firstName,
+        lastName: account.lastName,
+        email: account.email,
+        passwordHash,
+        phone: `+2547${String(10000000 + sequence).slice(0, 8)}`,
+        roleId,
+        departmentId: account.departmentCode ? departmentByCode.get(account.departmentCode) : undefined,
+        businessUnitId: account.businessUnitCode ? businessUnitByCode.get(account.businessUnitCode) : undefined,
+        jobTitle: account.jobTitle,
+        hireDate: new Date(2023, sequence % 12, (sequence % 27) + 1),
+        employmentStatus: "ACTIVE",
+        status: "ACTIVE",
+      },
+    });
+    userIdByEmail.set(account.email, user.id);
+  }
+
+  console.log("Wiring reporting lines...");
+  for (const [email, managerEmail] of Object.entries(REPORTING_LINES)) {
+    const userId = userIdByEmail.get(email);
+    const managerId = userIdByEmail.get(managerEmail);
+    if (userId && managerId) {
+      await prisma.user.update({ where: { id: userId }, data: { reportingToId: managerId } });
+    }
+  }
+
+  console.log("Seeding welcome notifications...");
+  for (const [email, userId] of userIdByEmail.entries()) {
+    const existing = await prisma.notification.findFirst({
+      where: { userId, type: "SYSTEM", title: "Welcome to Masterways CRM" },
+    });
+    if (!existing) {
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: "SYSTEM",
+          title: "Welcome to Masterways CRM",
+          message: `Your workspace is ready. Sign in with ${email} to get started.`,
+        },
+      });
+    }
+  }
+
+  console.log("Seeding integration placeholders (mock, ready to wire to real APIs)...");
+  for (const integration of INTEGRATIONS) {
+    await prisma.integrationConfig.upsert({
+      where: { provider: integration.provider },
+      update: { displayName: integration.displayName },
+      create: { provider: integration.provider, displayName: integration.displayName, status: "MOCK" },
+    });
+  }
+
+  console.log(`\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users.`);
+  console.log(`Demo password for every seeded user: ${DEMO_PASSWORD}`);
+}
+
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

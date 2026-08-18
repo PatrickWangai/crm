@@ -1,0 +1,972 @@
+// Masterways Group of Companies CRM — Database Schema
+// Source of truth: CRM Blueprint (CRM Committee, Masterways Group of Companies)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+enum BusinessUnitCode {
+  MGC // Masterways Group of Companies (corporate/shared)
+  MRE // Masterways Real Estate
+  MSL // Masterways Sacco Limited
+  MIA // Masterways Insurance Agency
+  MHL // Masterways Housing Limited
+}
+
+enum StakeholderType {
+  CUSTOMER
+  TENANT
+  LANDLORD
+  SACCO_MEMBER
+  INSURANCE_CLIENT
+  INVESTOR
+  PROSPECT
+  OTHER
+}
+
+enum LeadSource {
+  WEBSITE
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  EMAIL
+  WALK_IN
+  REFERRAL
+  PROPERTY_INQUIRY
+  CAMPAIGN
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  NEGOTIATION
+  VIEWING_SCHEDULED
+  RESERVATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum OpportunityStage {
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  RESERVATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum TicketStatus {
+  REQUEST_LOGGED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum UnitStatus {
+  OCCUPIED
+  VACANT
+  RESERVED
+  UNDER_MAINTENANCE
+}
+
+enum LeaseStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING_RENEWAL
+}
+
+enum JobCardStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+enum CommunicationChannel {
+  CALL
+  EMAIL
+  SMS
+  WHATSAPP
+  MEETING
+  NOTE
+  WALK_IN
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum DocumentRelatedType {
+  STAKEHOLDER
+  LEAD
+  PROPERTY
+  UNIT
+  LEASE
+  TICKET
+  EMPLOYEE
+  TASK
+}
+
+enum NotificationType {
+  LEAD_ASSIGNED
+  TICKET_ASSIGNED
+  TASK_ASSIGNED
+  TASK_OVERDUE
+  SLA_RISK
+  SLA_BREACH
+  LEASE_EXPIRING
+  FOLLOW_UP_DUE
+  APPROVAL
+  SYSTEM
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum CampaignChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  SOCIAL_MEDIA
+  WEBSITE
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MPESA
+  CARD
+  CHEQUE
+  OTHER
+}
+
+enum IntegrationProvider {
+  EZEN
+  SACCO_CBS
+  SMS_GATEWAY
+  EMAIL_GATEWAY
+  WHATSAPP_GATEWAY
+  AI_ASSISTANT
+}
+
+enum IntegrationStatus {
+  MOCK
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+// ---------------------------------------------------------------------------
+// ORGANIZATION / RBAC
+// ---------------------------------------------------------------------------
+
+model BusinessUnit {
+  id          String           @id @default(cuid())
+  code        BusinessUnitCode @unique
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  departments  Department[]
+  users        User[]
+  stakeholders Stakeholder[]
+  leads        Lead[]
+  properties   Property[]
+  tickets      Ticket[]
+  campaigns    Campaign[]
+  invoices     Invoice[]
+  slas         SLA[]
+  workflows    Workflow[]
+
+  @@map("business_units")
+}
+
+model Department {
+  id             String        @id @default(cuid())
+  name           String
+  code           String        @unique
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  users   User[]
+  tasks   Task[]
+  tickets Ticket[]
+
+  @@map("departments")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. "leads.view_all"
+  module      String // e.g. "leads"
+  action      String // e.g. "view_all"
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  employeeId   String?    @unique
+  firstName    String
+  lastName     String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  avatarUrl    String?
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+
+  roleId         String
+  role           Role          @relation(fields: [roleId], references: [id])
+  departmentId   String?
+  department     Department?   @relation(fields: [departmentId], references: [id])
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+
+  jobTitle         String?
+  reportingToId    String?
+  reportingTo      User?             @relation("ReportingLine", fields: [reportingToId], references: [id])
+  directReports    User[]            @relation("ReportingLine")
+  hireDate         DateTime?
+  employmentStatus EmploymentStatus? @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions             Session[]
+  assignedStakeholders Stakeholder[]        @relation("AssignedStaff")
+  assignedLeads        Lead[]               @relation("AssignedAgent")
+  leadStatusChanges    LeadStatusHistory[]
+  assignedTickets      Ticket[]             @relation("AssignedAgent")
+  ticketComments       TicketComment[]
+  assignedTasks        Task[]               @relation("TaskAssignee")
+  createdTasks         Task[]               @relation("TaskCreator")
+  taskComments         TaskComment[]
+  communications       Communication[]
+  uploadedDocuments    Document[]
+  notifications        Notification[]
+  createdCampaigns     Campaign[]
+  recordedPayments     Payment[]
+  auditLogs            AuditLog[]
+  createdWorkflows     Workflow[]
+  maintenanceAssigned  MaintenanceRequest[] @relation("MaintenanceAssignee")
+  maintenanceReported  MaintenanceRequest[] @relation("MaintenanceReporter")
+
+  @@index([roleId])
+  @@index([departmentId])
+  @@index([businessUnitId])
+  @@map("users")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ---------------------------------------------------------------------------
+// STAKEHOLDER (CUSTOMER / TENANT / LANDLORD / MEMBER / CLIENT) — unified profile
+// ---------------------------------------------------------------------------
+
+model Stakeholder {
+  id             String          @id @default(cuid())
+  code           String          @unique // e.g. STK-000123
+  type           StakeholderType
+  firstName      String
+  lastName       String
+  organization   String?
+  email          String?
+  phone          String?
+  alternatePhone String?
+  address        String?
+  city           String?
+  idNumber       String?
+  kraPin         String?
+  dateOfBirth    DateTime?
+  notes          String?
+
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+
+  assignedStaffId String?
+  assignedStaff   User?   @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads            Lead[]
+  opportunities    Opportunity[]
+  ticketsRaised    Ticket[]
+  tasks            Task[]
+  communications   Communication[]
+  documents        Document[]
+  leasesAsTenant   Lease[]         @relation("TenantLeases")
+  leasesAsLandlord Lease[]         @relation("LandlordLeases")
+  propertiesOwned  Property[]      @relation("PropertyLandlord")
+  unitsOccupied    Unit[]          @relation("UnitTenant")
+  invoices         Invoice[]
+
+  @@index([type])
+  @@index([businessUnitId])
+  @@index([assignedStaffId])
+  @@map("stakeholders")
+}
+
+// ---------------------------------------------------------------------------
+// LEADS / OPPORTUNITIES
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id           String     @id @default(cuid())
+  code         String     @unique // e.g. LD-000123
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  source       LeadSource
+  sourceDetail String?
+  requirements String?
+  status       LeadStatus @default(NEW)
+
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+
+  interestedPropertyId String?
+  interestedProperty   Property? @relation(fields: [interestedPropertyId], references: [id])
+  interestedUnitId     String?
+  interestedUnit       Unit?     @relation(fields: [interestedUnitId], references: [id])
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedAgent", fields: [assignedToId], references: [id])
+
+  convertedStakeholderId String?
+  convertedStakeholder   Stakeholder? @relation(fields: [convertedStakeholderId], references: [id])
+
+  nextFollowUpAt    DateTime?
+  lastInteractionAt DateTime?
+  convertedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  statusHistory  LeadStatusHistory[]
+  opportunities  Opportunity[]
+  communications Communication[]
+  tasks          Task[]
+  documents      Document[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([businessUnitId])
+  @@map("leads")
+}
+
+model LeadStatusHistory {
+  id          String      @id @default(cuid())
+  leadId      String
+  lead        Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fromStatus  LeadStatus?
+  toStatus    LeadStatus
+  note        String?
+  changedById String?
+  changedBy   User?       @relation(fields: [changedById], references: [id])
+  changedAt   DateTime    @default(now())
+
+  @@index([leadId])
+  @@map("lead_status_history")
+}
+
+model Opportunity {
+  id                String           @id @default(cuid())
+  code              String           @unique // e.g. OPP-000123
+  title             String
+  leadId            String?
+  lead              Lead?            @relation(fields: [leadId], references: [id])
+  stakeholderId     String?
+  stakeholder       Stakeholder?     @relation(fields: [stakeholderId], references: [id])
+  propertyId        String?
+  property          Property?        @relation(fields: [propertyId], references: [id])
+  unitId            String?
+  unit              Unit?            @relation(fields: [unitId], references: [id])
+  value             Decimal          @default(0) @db.Decimal(14, 2)
+  stage             OpportunityStage @default(QUALIFICATION)
+  probability       Int              @default(20)
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([stage])
+  @@map("opportunities")
+}
+
+// ---------------------------------------------------------------------------
+// PROPERTY MANAGEMENT
+// ---------------------------------------------------------------------------
+
+model Property {
+  id           String  @id @default(cuid())
+  code         String  @unique // e.g. PRP-0012
+  name         String
+  propertyType String // Apartment, Commercial, Estate, etc.
+  address      String?
+  city         String?
+  region       String?
+
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+
+  landlordId String?
+  landlord   Stakeholder? @relation("PropertyLandlord", fields: [landlordId], references: [id])
+
+  ezenPropertyRef String? // external Ezen system reference (integration placeholder)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  units               Unit[]
+  leads               Lead[]
+  opportunities       Opportunity[]
+  maintenanceRequests MaintenanceRequest[]
+  documents           Document[]
+  tasks               Task[]
+
+  @@index([businessUnitId])
+  @@map("properties")
+}
+
+model Unit {
+  id         String     @id @default(cuid())
+  code       String     @unique // e.g. UNIT-000123
+  unitNumber String
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitType   String // Studio, 1BR, 2BR, Office, Shop...
+  floor      String?
+  bedrooms   Int?
+  bathrooms  Int?
+  sizeSqm    Decimal?   @db.Decimal(10, 2)
+  rentAmount Decimal    @default(0) @db.Decimal(12, 2)
+  status     UnitStatus @default(VACANT)
+
+  currentTenantId String?
+  currentTenant   Stakeholder? @relation("UnitTenant", fields: [currentTenantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads               Lead[]
+  opportunities       Opportunity[]
+  leases              Lease[]
+  maintenanceRequests MaintenanceRequest[]
+  documents           Document[]
+
+  @@index([propertyId])
+  @@index([status])
+  @@map("units")
+}
+
+model Lease {
+  id                    String       @id @default(cuid())
+  code                  String       @unique // e.g. LSE-000123
+  unitId                String
+  unit                  Unit         @relation(fields: [unitId], references: [id])
+  tenantId              String
+  tenant                Stakeholder  @relation("TenantLeases", fields: [tenantId], references: [id])
+  landlordId            String?
+  landlord              Stakeholder? @relation("LandlordLeases", fields: [landlordId], references: [id])
+  startDate             DateTime
+  endDate               DateTime
+  rentAmount            Decimal      @db.Decimal(12, 2)
+  depositAmount         Decimal?     @db.Decimal(12, 2)
+  status                LeaseStatus  @default(ACTIVE)
+  renewalReminderSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents Document[]
+  invoices  Invoice[]
+
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([endDate])
+  @@map("leases")
+}
+
+model MaintenanceRequest {
+  id               String         @id @default(cuid())
+  jobCardNumber    String         @unique // e.g. JC-000123
+  propertyId       String
+  property         Property       @relation(fields: [propertyId], references: [id])
+  unitId           String?
+  unit             Unit?          @relation(fields: [unitId], references: [id])
+  issueDescription String
+  status           JobCardStatus  @default(OPEN)
+  priority         TicketPriority @default(MEDIUM)
+
+  reportedById String?
+  reportedBy   User?   @relation("MaintenanceReporter", fields: [reportedById], references: [id])
+  assignedToId String?
+  assignedTo   User?   @relation("MaintenanceAssignee", fields: [assignedToId], references: [id])
+
+  expectedCompletionDate DateTime?
+  completedAt            DateTime?
+  cost                   Decimal?  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents Document[]
+
+  @@index([propertyId])
+  @@index([status])
+  @@map("maintenance_requests")
+}
+
+// ---------------------------------------------------------------------------
+// CUSTOMER SERVICE / TICKETING
+// ---------------------------------------------------------------------------
+
+model SLA {
+  id                    String         @id @default(cuid())
+  name                  String
+  businessUnitId        String?
+  businessUnit          BusinessUnit?  @relation(fields: [businessUnitId], references: [id])
+  category              String?
+  priority              TicketPriority
+  responseTimeMinutes   Int
+  resolutionTimeMinutes Int
+  isActive              Boolean        @default(true)
+  createdAt             DateTime       @default(now())
+
+  tickets Ticket[]
+
+  @@map("slas")
+}
+
+model Ticket {
+  id            String         @id @default(cuid())
+  ticketNumber  String         @unique // e.g. TKT-000123
+  stakeholderId String
+  stakeholder   Stakeholder    @relation(fields: [stakeholderId], references: [id])
+  subject       String
+  description   String
+  category      String
+  priority      TicketPriority @default(MEDIUM)
+  status        TicketStatus   @default(REQUEST_LOGGED)
+
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  departmentId   String?
+  department     Department?   @relation(fields: [departmentId], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedAgent", fields: [assignedToId], references: [id])
+
+  slaId String?
+  sla   SLA?      @relation(fields: [slaId], references: [id])
+  dueAt DateTime?
+
+  resolvedAt DateTime?
+  closedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments       TicketComment[]
+  communications Communication[]
+  documents      Document[]
+  tasks          Task[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([stakeholderId])
+  @@map("tickets")
+}
+
+model TicketComment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  comment    String
+  isInternal Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_comments")
+}
+
+// ---------------------------------------------------------------------------
+// TASKS / WORKFLOW
+// ---------------------------------------------------------------------------
+
+model Task {
+  id          String       @id @default(cuid())
+  code        String       @unique // e.g. TSK-000123
+  title       String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(PENDING)
+  dueDate     DateTime?
+
+  assigneeId  String?
+  assignee    User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String?
+  createdBy   User?   @relation("TaskCreator", fields: [createdById], references: [id])
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  relatedStakeholderId String?
+  relatedStakeholder   Stakeholder? @relation(fields: [relatedStakeholderId], references: [id])
+  relatedLeadId        String?
+  relatedLead          Lead?        @relation(fields: [relatedLeadId], references: [id])
+  relatedTicketId      String?
+  relatedTicket        Ticket?      @relation(fields: [relatedTicketId], references: [id])
+  relatedPropertyId    String?
+  relatedProperty      Property?    @relation(fields: [relatedPropertyId], references: [id])
+
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  comments  TaskComment[]
+  documents Document[]
+
+  @@index([status])
+  @@index([assigneeId])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  comment   String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model Workflow {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  triggerType    String // e.g. "lead.created", "ticket.overdue"
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  isActive       Boolean       @default(true)
+  createdById    String?
+  createdBy      User?         @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("workflows")
+}
+
+// ---------------------------------------------------------------------------
+// COMMUNICATION
+// ---------------------------------------------------------------------------
+
+model Communication {
+  id            String                 @id @default(cuid())
+  stakeholderId String
+  stakeholder   Stakeholder            @relation(fields: [stakeholderId], references: [id])
+  channel       CommunicationChannel
+  direction     CommunicationDirection
+  subject       String?
+  content       String
+  staffId       String?
+  staff         User?                  @relation(fields: [staffId], references: [id])
+
+  relatedLeadId   String?
+  relatedLead     Lead?   @relation(fields: [relatedLeadId], references: [id])
+  relatedTicketId String?
+  relatedTicket   Ticket? @relation(fields: [relatedTicketId], references: [id])
+
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([stakeholderId])
+  @@index([occurredAt])
+  @@map("communications")
+}
+
+// ---------------------------------------------------------------------------
+// DOCUMENTS
+// ---------------------------------------------------------------------------
+
+model Document {
+  id            String              @id @default(cuid())
+  fileName      String
+  fileType      String
+  fileSizeBytes Int
+  filePath      String // storage path/url
+  relatedType   DocumentRelatedType
+  version       Int                 @default(1)
+  accessLevel   String              @default("internal") // internal | restricted | public
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+
+  stakeholderId        String?
+  stakeholder          Stakeholder?        @relation(fields: [stakeholderId], references: [id])
+  leadId               String?
+  lead                 Lead?               @relation(fields: [leadId], references: [id])
+  propertyId           String?
+  property             Property?           @relation(fields: [propertyId], references: [id])
+  unitId               String?
+  unit                 Unit?               @relation(fields: [unitId], references: [id])
+  leaseId              String?
+  lease                Lease?              @relation(fields: [leaseId], references: [id])
+  ticketId             String?
+  ticket               Ticket?             @relation(fields: [ticketId], references: [id])
+  taskId               String?
+  task                 Task?               @relation(fields: [taskId], references: [id])
+  maintenanceRequestId String?
+  maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([relatedType])
+  @@map("documents")
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFICATIONS
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  message    String
+  relatedUrl String?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// MARKETING / CAMPAIGNS
+// ---------------------------------------------------------------------------
+
+model Campaign {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  channel        CampaignChannel
+  status         CampaignStatus  @default(DRAFT)
+  businessUnitId String?
+  businessUnit   BusinessUnit?   @relation(fields: [businessUnitId], references: [id])
+  startDate      DateTime?
+  endDate        DateTime?
+  budget         Decimal?        @db.Decimal(12, 2)
+  createdById    String?
+  createdBy      User?           @relation(fields: [createdById], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  leads Lead[]
+
+  @@map("campaigns")
+}
+
+// ---------------------------------------------------------------------------
+// FINANCE
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id             String        @id @default(cuid())
+  invoiceNumber  String        @unique
+  stakeholderId  String
+  stakeholder    Stakeholder   @relation(fields: [stakeholderId], references: [id])
+  leaseId        String?
+  lease          Lease?        @relation(fields: [leaseId], references: [id])
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  amount         Decimal       @db.Decimal(14, 2)
+  dueDate        DateTime
+  status         InvoiceStatus @default(SENT)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  payments Payment[]
+
+  @@index([status])
+  @@map("invoices")
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id])
+  amount       Decimal       @db.Decimal(14, 2)
+  method       PaymentMethod
+  reference    String?
+  paidAt       DateTime      @default(now())
+  recordedById String?
+  recordedBy   User?         @relation(fields: [recordedById], references: [id])
+
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// AUDIT LOG
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  action        String // e.g. "customer.created", "ticket.status_changed"
+  entityType    String
+  entityId      String?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// INTEGRATIONS (architecture placeholders — mock implementations in Phase 1-8)
+// ---------------------------------------------------------------------------
+
+model IntegrationConfig {
+  id           String              @id @default(cuid())
+  provider     IntegrationProvider @unique
+  displayName  String
+  status       IntegrationStatus   @default(MOCK)
+  config       Json? // non-secret config (endpoints, feature flags)
+  lastSyncedAt DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("integration_configs")
+}
