@@ -6,6 +6,7 @@ import { Upload, Download, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { buildCsvTemplate, downloadTextFile } from "@/lib/csv";
 import type { ImportFormState } from "@/lib/validation/import";
 
 const initialState: ImportFormState = {};
@@ -45,17 +46,7 @@ export function CsvImportDialog({
   }, [state]);
 
   function downloadTemplate() {
-    const escape = (v: string) => (v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v);
-    const csv = [templateHeaders, ...templateExample].map((row) => row.map(escape).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.toLowerCase().replace(/\s+/g, "-")}-template.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadTextFile(`${title.toLowerCase().replace(/\s+/g, "-")}-template.csv`, buildCsvTemplate(templateHeaders, templateExample));
   }
 
   return (

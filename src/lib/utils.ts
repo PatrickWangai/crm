@@ -17,3 +17,12 @@ export function formatCurrency(amount: number | string, currency = "KES"): strin
     maximumFractionDigits: 0,
   }).format(value);
 }
+
+/** Turns a SCREAMING_SNAKE_CASE enum value into "Title Case" for display. */
+export function labelize(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}

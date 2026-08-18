@@ -13,16 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FunnelChart, DistributionBarChart, StatusPieChart } from "@/components/reports/report-charts";
-import { formatCurrency } from "@/lib/utils";
+import { ExportReportButton } from "@/components/reports/export-report-button";
+import { formatCurrency, labelize } from "@/lib/utils";
 import { TrendingUp, Ticket, Home, Receipt, Wrench, CheckSquare, Target, Percent } from "lucide-react";
-
-function labelize(value: string): string {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 export default async function ReportsPage() {
   await requireAnyPermissionOrRedirect(["reports.view"]);
@@ -39,7 +32,21 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Reports & Analytics" description="Portfolio-wide performance across sales, service, property and finance." />
+      <PageHeader
+        title="Reports & Analytics"
+        description="Portfolio-wide performance across sales, service, property and finance."
+        actions={
+          <ExportReportButton
+            pipeline={pipeline}
+            sources={sources}
+            ticketSla={ticketSla}
+            occupancy={occupancy}
+            finance={finance}
+            maintenance={maintenance}
+            tasks={tasks}
+          />
+        }
+      />
 
       {/* Sales pipeline */}
       <section className="space-y-4">
