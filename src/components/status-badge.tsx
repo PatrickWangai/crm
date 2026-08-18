@@ -3,6 +3,16 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 type Variant = NonNullable<BadgeProps["variant"]>;
 
 const STATUS_MAP: Record<string, { label: string; variant: Variant }> = {
+  // Stakeholder types
+  CUSTOMER: { label: "Customer", variant: "info" },
+  TENANT: { label: "Tenant", variant: "default" },
+  LANDLORD: { label: "Landlord", variant: "warning" },
+  SACCO_MEMBER: { label: "SACCO Member", variant: "success" },
+  INSURANCE_CLIENT: { label: "Insurance Client", variant: "secondary" },
+  INVESTOR: { label: "Investor", variant: "outline" },
+  PROSPECT: { label: "Prospect", variant: "secondary" },
+  OTHER: { label: "Other", variant: "outline" },
+
   // Lead pipeline
   NEW: { label: "New", variant: "info" },
   CONTACTED: { label: "Contacted", variant: "secondary" },

@@ -74,3 +74,9 @@ export async function requirePermissionOrRedirect(code: string) {
   if (!hasPermission(user, code)) redirect("/forbidden");
   return user;
 }
+
+export async function requireAnyPermissionOrRedirect(codes: string[]) {
+  const user = await requireUser();
+  if (!hasAnyPermission(user, codes)) redirect("/forbidden");
+  return user;
+}

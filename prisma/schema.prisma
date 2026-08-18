@@ -401,7 +401,7 @@ model Stakeholder {
 
   leads            Lead[]
   opportunities    Opportunity[]
-  ticketsRaised    Ticket[]
+  tickets          Ticket[]
   tasks            Task[]
   communications   Communication[]
   documents        Document[]

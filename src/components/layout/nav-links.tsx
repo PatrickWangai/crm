@@ -15,10 +15,14 @@ export function NavLinks({
   const pathname = usePathname();
   const granted = new Set(grantedPermissions);
 
+  function isVisible(permission: string | string[]): boolean {
+    return Array.isArray(permission) ? permission.some((code) => granted.has(code)) : granted.has(permission);
+  }
+
   return (
     <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
       {NAV_SECTIONS.map((section) => {
-        const visibleItems = section.items.filter((item) => granted.has(item.permission));
+        const visibleItems = section.items.filter((item) => isVisible(item.permission));
         if (visibleItems.length === 0) return null;
         return (
           <div key={section.label} className="space-y-1">

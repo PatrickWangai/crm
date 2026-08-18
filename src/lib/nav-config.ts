@@ -1,12 +1,12 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Users, Building2, ShieldCheck, Landmark, ClipboardList, Contact } from "lucide-react";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Permission code required to see/use this item. */
-  permission: string;
+  /** Permission code(s) required to see/use this item. Array = any-of. */
+  permission: string | string[];
 }
 
 export interface NavSection {
@@ -23,6 +23,17 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Overview",
     items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.view" }],
+  },
+  {
+    label: "CRM",
+    items: [
+      {
+        label: "Stakeholders",
+        href: "/stakeholders",
+        icon: Contact,
+        permission: ["stakeholders.view_all", "stakeholders.view_own"],
+      },
+    ],
   },
   {
     label: "Administration",
