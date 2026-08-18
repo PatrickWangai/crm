@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { invoiceSchema, paymentSchema, type InvoiceFormState, type PaymentFormState } from "@/lib/validation/finance";
-import { createInvoice, recordPayment } from "@/lib/services/finance.service";
+import { approveInvoice, createInvoice, recordPayment, rejectInvoice } from "@/lib/services/finance.service";
 
 function friendlyError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong. Please try again.";
@@ -21,6 +21,26 @@ export async function createInvoiceAction(_prev: InvoiceFormState, formData: For
     await createInvoice(parsed.data);
     revalidatePath("/finance");
     return { success: true };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function approveInvoiceAction(invoiceId: string): Promise<{ error?: string }> {
+  try {
+    await approveInvoice(invoiceId);
+    revalidatePath("/finance");
+    return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function rejectInvoiceAction(invoiceId: string): Promise<{ error?: string }> {
+  try {
+    await rejectInvoice(invoiceId);
+    revalidatePath("/finance");
+    return {};
   } catch (err) {
     return { error: friendlyError(err) };
   }

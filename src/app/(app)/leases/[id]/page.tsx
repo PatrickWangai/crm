@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeaseStatusControl } from "@/components/leases/lease-status-control";
 import { LeaseInvoiceDialog } from "@/components/finance/lease-invoice-dialog";
 import { RecordPaymentDialog } from "@/components/finance/record-payment-dialog";
+import { ApproveInvoiceButtons } from "@/components/finance/approve-invoice-buttons";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
 import { formatCurrency } from "@/lib/utils";
@@ -32,6 +33,7 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
 
   const canManage = hasPermission(user, "leases.manage");
   const canManageFinance = hasPermission(user, "finance.manage");
+  const canApproveFinance = hasPermission(user, "finance.approve");
   const canUpload = hasPermission(user, "documents.upload");
   const canDeleteDocs = hasPermission(user, "documents.delete");
 
@@ -122,7 +124,13 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
                             <span className="text-sm font-medium">{formatCurrency(Number(invoice.amount))}</span>
                           </div>
                         </div>
-                        {balance > 0 && canManageFinance && (
+                        {invoice.status === "DRAFT" && canApproveFinance && (
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Awaiting approval</span>
+                            <ApproveInvoiceButtons invoiceId={invoice.id} />
+                          </div>
+                        )}
+                        {balance > 0 && invoice.status !== "DRAFT" && canManageFinance && (
                           <div className="mt-2 flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">Balance: {formatCurrency(balance)}</span>
                             <RecordPaymentDialog invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} balance={balance} />

@@ -347,6 +347,8 @@ model User {
   createdWorkflows     Workflow[]
   maintenanceAssigned  MaintenanceRequest[] @relation("MaintenanceAssignee")
   maintenanceReported  MaintenanceRequest[] @relation("MaintenanceReporter")
+  createdInvoices      Invoice[]
+  approvedInvoices     Invoice[]            @relation("InvoiceApprover")
 
   @@index([roleId])
   @@index([departmentId])
@@ -907,6 +909,11 @@ model Invoice {
   amount         Decimal       @db.Decimal(14, 2)
   dueDate        DateTime
   status         InvoiceStatus @default(SENT)
+  createdById    String?
+  createdBy      User?         @relation(fields: [createdById], references: [id])
+  approvedById   String?
+  approvedBy     User?         @relation("InvoiceApprover", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 

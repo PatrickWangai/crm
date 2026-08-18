@@ -8,6 +8,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge } from "@/components/status-badge";
 import { InvoiceFormSheet } from "@/components/finance/invoice-form-sheet";
 import { RecordPaymentDialog } from "@/components/finance/record-payment-dialog";
+import { ApproveInvoiceButtons } from "@/components/finance/approve-invoice-buttons";
 import { formatCurrency } from "@/lib/utils";
 import { Receipt } from "lucide-react";
 
@@ -28,6 +29,7 @@ export default async function FinancePage({
     listBusinessUnitOptions(),
   ]);
   const canManage = hasPermission(user, "finance.manage");
+  const canApprove = hasPermission(user, "finance.approve");
 
   return (
     <div>
@@ -50,8 +52,9 @@ export default async function FinancePage({
                   <TableHead>Lease</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Due</TableHead>
+                  <TableHead>Submitted by</TableHead>
                   <TableHead>Status</TableHead>
-                  {canManage && <TableHead className="text-right">Actions</TableHead>}
+                  {(canManage || canApprove) && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -67,12 +70,21 @@ export default async function FinancePage({
                       <TableCell className="text-sm text-muted-foreground">{invoice.lease?.code ?? "—"}</TableCell>
                       <TableCell className="text-sm font-medium">{formatCurrency(Number(invoice.amount))}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {invoice.createdBy ? `${invoice.createdBy.firstName} ${invoice.createdBy.lastName}` : "—"}
+                      </TableCell>
                       <TableCell>
                         <StatusBadge status={invoice.status} />
                       </TableCell>
-                      {canManage && (
+                      {(canManage || canApprove) && (
                         <TableCell className="text-right">
-                          {balance > 0 && <RecordPaymentDialog invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} balance={balance} />}
+                          {invoice.status === "DRAFT" && canApprove ? (
+                            <ApproveInvoiceButtons invoiceId={invoice.id} />
+                          ) : (
+                            canManage &&
+                            balance > 0 &&
+                            invoice.status !== "DRAFT" && <RecordPaymentDialog invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} balance={balance} />
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
