@@ -10,6 +10,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge } from "@/components/status-badge";
 import { StakeholderFilters } from "@/components/stakeholders/stakeholder-filters";
 import { StakeholderFormSheet } from "@/components/stakeholders/stakeholder-form-sheet";
+import { CsvImportDialog } from "@/components/admin/csv-import-dialog";
+import { importStakeholdersAction } from "@/app/(app)/stakeholders/actions";
 import { initials } from "@/lib/utils";
 import { Contact } from "lucide-react";
 import type { StakeholderType } from "@prisma/client";
@@ -44,7 +46,50 @@ export default async function StakeholdersPage({
             ? `${total} stakeholder${total === 1 ? "" : "s"} assigned to you`
             : `${total} stakeholder${total === 1 ? "" : "s"} across the organization`
         }
-        actions={canCreate ? <StakeholderFormSheet mode="create" businessUnits={businessUnits} staff={staff} redirectOnCreate /> : undefined}
+        actions={
+          canCreate ? (
+            <div className="flex items-center gap-2">
+              <CsvImportDialog
+                title="Bulk import stakeholders"
+                description="Create multiple stakeholder profiles at once from a CSV file."
+                templateHeaders={[
+                  "type",
+                  "firstName",
+                  "lastName",
+                  "organization",
+                  "email",
+                  "phone",
+                  "alternatePhone",
+                  "address",
+                  "city",
+                  "idNumber",
+                  "kraPin",
+                  "businessUnitCode",
+                  "assignedStaffEmail",
+                ]}
+                templateExample={[
+                  [
+                    "CUSTOMER",
+                    "Jane",
+                    "Doe",
+                    "",
+                    "jane.doe@example.com",
+                    "+254700000000",
+                    "",
+                    "123 Example Rd",
+                    "Nairobi",
+                    "",
+                    "",
+                    "MRE",
+                    "faith.njoki@masterways.co.ke",
+                  ],
+                ]}
+                action={importStakeholdersAction}
+              />
+              <StakeholderFormSheet mode="create" businessUnits={businessUnits} staff={staff} redirectOnCreate />
+            </div>
+          ) : undefined
+        }
       />
 
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">

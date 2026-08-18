@@ -7,6 +7,8 @@ import { leaseSchema, leaseStatusChangeSchema, type LeaseFormState } from "@/lib
 import { createLease, flagExpiringLeases, updateLease, updateLeaseStatus } from "@/lib/services/lease.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import type { DocumentFormState } from "@/lib/validation/communication";
+import type { ImportFormState } from "@/lib/validation/import";
+import { importLeasesCsv } from "@/lib/services/import.service";
 
 function toInput(formData: FormData) {
   return {
@@ -97,6 +99,18 @@ export async function deleteLeaseDocumentAction(documentId: string, leaseId: str
     await deleteDocument(documentId);
     revalidatePath(`/leases/${leaseId}`);
     return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function importLeasesAction(_prev: ImportFormState, formData: FormData): Promise<ImportFormState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Please choose a CSV file." };
+  try {
+    const result = await importLeasesCsv(await file.text());
+    revalidatePath("/leases");
+    return { result };
   } catch (err) {
     return { error: friendlyError(err) };
   }

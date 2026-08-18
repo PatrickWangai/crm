@@ -7,6 +7,8 @@ import { createProperty, deleteProperty, updateProperty } from "@/lib/services/p
 import { createUnit, deleteUnit, updateUnit } from "@/lib/services/unit.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import type { DocumentFormState } from "@/lib/validation/communication";
+import type { ImportFormState } from "@/lib/validation/import";
+import { importPropertiesCsv, importUnitsCsv } from "@/lib/services/import.service";
 
 function toPropertyInput(formData: FormData) {
   return {
@@ -125,6 +127,30 @@ export async function deletePropertyDocumentAction(documentId: string, propertyI
     await deleteDocument(documentId);
     revalidatePath(`/properties/${propertyId}`);
     return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function importPropertiesAction(_prev: ImportFormState, formData: FormData): Promise<ImportFormState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Please choose a CSV file." };
+  try {
+    const result = await importPropertiesCsv(await file.text());
+    revalidatePath("/properties");
+    return { result };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function importUnitsAction(_prev: ImportFormState, formData: FormData): Promise<ImportFormState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Please choose a CSV file." };
+  try {
+    const result = await importUnitsCsv(await file.text());
+    revalidatePath("/properties");
+    return { result };
   } catch (err) {
     return { error: friendlyError(err) };
   }

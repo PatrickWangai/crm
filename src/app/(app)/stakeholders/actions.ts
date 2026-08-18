@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { stakeholderSchema } from "@/lib/validation/stakeholder";
 import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
 import { taskSchema, type TaskFormState } from "@/lib/validation/task";
+import type { ImportFormState } from "@/lib/validation/import";
 import {
   createStakeholder,
   deleteStakeholder,
@@ -13,6 +14,7 @@ import {
 import { logCommunication } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import { createTask } from "@/lib/services/task.service";
+import { importStakeholdersCsv } from "@/lib/services/import.service";
 
 export interface StakeholderFormState {
   error?: string;
@@ -143,6 +145,18 @@ export async function createStakeholderTaskAction(stakeholderId: string, _prev: 
     const task = await createTask({ stakeholderId }, parsed.data);
     revalidatePath(`/stakeholders/${stakeholderId}`);
     return { success: true, taskId: task.id };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function importStakeholdersAction(_prev: ImportFormState, formData: FormData): Promise<ImportFormState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Please choose a CSV file." };
+  try {
+    const result = await importStakeholdersCsv(await file.text());
+    revalidatePath("/stakeholders");
+    return { result };
   } catch (err) {
     return { error: friendlyError(err) };
   }

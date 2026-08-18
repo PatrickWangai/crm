@@ -9,6 +9,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { PropertyFilters } from "@/components/properties/property-filters";
 import { PropertyFormSheet } from "@/components/properties/property-form-sheet";
+import { CsvImportDialog } from "@/components/admin/csv-import-dialog";
+import { importPropertiesAction, importUnitsAction } from "@/app/(app)/properties/actions";
 import { Building2 } from "lucide-react";
 
 export default async function PropertiesPage({
@@ -35,7 +37,27 @@ export default async function PropertiesPage({
       <PageHeader
         title="Properties"
         description="Buildings and estates managed across the portfolio."
-        actions={canManage ? <PropertyFormSheet mode="create" businessUnits={businessUnits} landlords={landlords} redirectOnCreate /> : undefined}
+        actions={
+          canManage ? (
+            <div className="flex items-center gap-2">
+              <CsvImportDialog
+                title="Bulk import properties"
+                description="Create multiple properties at once. Import properties before importing their units."
+                templateHeaders={["name", "propertyType", "address", "city", "region", "businessUnitCode", "landlordCode", "ezenPropertyRef"]}
+                templateExample={[["Kilimani Heights", "Apartment", "123 Argwings Kodhek Rd", "Nairobi", "Nairobi", "MRE", "", ""]]}
+                action={importPropertiesAction}
+              />
+              <CsvImportDialog
+                title="Bulk import units"
+                description="Create multiple units at once, referencing an existing property by its code (e.g. PRP-0001)."
+                templateHeaders={["propertyCode", "unitNumber", "unitType", "floor", "bedrooms", "bathrooms", "sizeSqm", "rentAmount", "status"]}
+                templateExample={[["PRP-0001", "A1", "2BR", "1", "2", "2", "85", "85000", "VACANT"]]}
+                action={importUnitsAction}
+              />
+              <PropertyFormSheet mode="create" businessUnits={businessUnits} landlords={landlords} redirectOnCreate />
+            </div>
+          ) : undefined
+        }
       />
 
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">

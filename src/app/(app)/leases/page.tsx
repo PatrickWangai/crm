@@ -10,6 +10,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { LeaseFilters } from "@/components/leases/lease-filters";
 import { LeaseFormSheet } from "@/components/leases/lease-form-sheet";
 import { CheckExpiringLeasesButton } from "@/components/leases/check-expiring-leases-button";
+import { CsvImportDialog } from "@/components/admin/csv-import-dialog";
+import { importLeasesAction } from "@/app/(app)/leases/actions";
 import { formatCurrency } from "@/lib/utils";
 import type { LeaseStatus } from "@prisma/client";
 import { FileSignature } from "lucide-react";
@@ -41,6 +43,13 @@ export default async function LeasesPage({
           canManage ? (
             <div className="flex items-center gap-2">
               <CheckExpiringLeasesButton />
+              <CsvImportDialog
+                title="Bulk import leases"
+                description="Start multiple leases at once, referencing an existing unit and tenant by their codes."
+                templateHeaders={["unitCode", "tenantCode", "landlordCode", "startDate", "endDate", "rentAmount", "depositAmount"]}
+                templateExample={[["UNIT-000001", "STK-000001", "", "2026-01-01", "2026-12-31", "85000", "85000"]]}
+                action={importLeasesAction}
+              />
               <LeaseFormSheet units={vacantUnits} tenants={stakeholders} landlords={stakeholders} />
             </div>
           ) : undefined

@@ -18,6 +18,8 @@ import { logCommunication } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import { createOpportunityForLead, deleteOpportunity, updateOpportunityStage } from "@/lib/services/opportunity.service";
 import { createTask } from "@/lib/services/task.service";
+import type { ImportFormState } from "@/lib/validation/import";
+import { importLeadsCsv } from "@/lib/services/import.service";
 
 export interface LeadFormState {
   error?: string;
@@ -227,6 +229,18 @@ export async function createLeadTaskAction(leadId: string, _prev: TaskFormState,
     const task = await createTask({ leadId }, parsed.data);
     revalidatePath(`/leads/${leadId}`);
     return { success: true, taskId: task.id };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function importLeadsAction(_prev: ImportFormState, formData: FormData): Promise<ImportFormState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Please choose a CSV file." };
+  try {
+    const result = await importLeadsCsv(await file.text());
+    revalidatePath("/leads");
+    return { result };
   } catch (err) {
     return { error: friendlyError(err) };
   }

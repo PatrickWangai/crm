@@ -12,6 +12,8 @@ import { LeadFilters } from "@/components/leads/lead-filters";
 import { LeadFormSheet } from "@/components/leads/lead-form-sheet";
 import { LeadKanban } from "@/components/leads/lead-kanban";
 import { CheckFollowUpsButton } from "@/components/leads/check-follow-ups-button";
+import { CsvImportDialog } from "@/components/admin/csv-import-dialog";
+import { importLeadsAction } from "@/app/(app)/leads/actions";
 import { initials } from "@/lib/utils";
 import { Users2 } from "lucide-react";
 import type { LeadSource, LeadStatus } from "@prisma/client";
@@ -41,6 +43,17 @@ export default async function LeadsPage({
         actions={
           <div className="flex items-center gap-2">
             {hasPermission(user, "leads.assign") && <CheckFollowUpsButton />}
+            {canCreate && (
+              <CsvImportDialog
+                title="Bulk import leads"
+                description="Capture multiple leads at once from a CSV file."
+                templateHeaders={["firstName", "lastName", "email", "phone", "source", "sourceDetail", "requirements", "businessUnitCode", "assignedToEmail"]}
+                templateExample={[
+                  ["Peter", "Mwaura", "peter.mwaura@example.com", "+254722334455", "WEBSITE", "", "3BR apartment in Kilimani", "MRE", "faith.njoki@masterways.co.ke"],
+                ]}
+                action={importLeadsAction}
+              />
+            )}
             {canCreate && <LeadFormSheet mode="create" businessUnits={businessUnits} staff={staff} redirectOnCreate />}
           </div>
         }
