@@ -64,6 +64,25 @@ const WORKFLOWS: { name: string; description: string; triggerType: string }[] = 
   { name: "Lease renewal reminder", description: "Flags active leases expiring within 30 days as Pending Renewal and notifies property managers.", triggerType: "lease.renewal_check" },
 ];
 
+const COMMUNICATION_TEMPLATES: { name: string; channel: "EMAIL" | "SMS" | "WHATSAPP"; subject?: string; body: string }[] = [
+  {
+    name: "Lead welcome email",
+    channel: "EMAIL",
+    subject: "Welcome to Masterways",
+    body: "Hi {{firstName}},\n\nThank you for your interest in Masterways. One of our agents will be in touch shortly to discuss your requirements.\n\nRegards,\nMasterways Team",
+  },
+  {
+    name: "Lease renewal reminder",
+    channel: "SMS",
+    body: "Hi {{firstName}}, your lease for {{unitNumber}} is expiring soon. Please contact your property manager to discuss renewal.",
+  },
+  {
+    name: "Payment received confirmation",
+    channel: "WHATSAPP",
+    body: "Hi {{firstName}}, we've received your payment of {{amount}} against invoice {{invoiceNumber}}. Thank you!",
+  },
+];
+
 const INTEGRATIONS: { provider: "EZEN" | "SACCO_CBS" | "SMS_GATEWAY" | "EMAIL_GATEWAY" | "WHATSAPP_GATEWAY" | "AI_ASSISTANT"; displayName: string }[] = [
   { provider: "EZEN", displayName: "Ezen Property Management System" },
   { provider: "SACCO_CBS", displayName: "SACCO Core Banking System" },
@@ -243,8 +262,18 @@ async function main() {
     }
   }
 
+  console.log("Seeding default communication templates...");
+  for (const tpl of COMMUNICATION_TEMPLATES) {
+    const existing = await prisma.communicationTemplate.findFirst({ where: { name: tpl.name } });
+    if (!existing) {
+      await prisma.communicationTemplate.create({
+        data: { name: tpl.name, channel: tpl.channel, subject: tpl.subject, body: tpl.body, isActive: true, createdById: ictAdmin?.id },
+      });
+    }
+  }
+
   console.log(
-    `\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users, ${SLA_POLICIES.length} SLA policies, ${WORKFLOWS.length} workflow automations.`,
+    `\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users, ${SLA_POLICIES.length} SLA policies, ${WORKFLOWS.length} workflow automations, ${COMMUNICATION_TEMPLATES.length} communication templates.`,
   );
   console.log(`Demo password for every seeded user: ${DEMO_PASSWORD}`);
 }

@@ -351,6 +351,8 @@ model User {
   approvedInvoices     Invoice[]            @relation("InvoiceApprover")
   reconciledPayments   Payment[]            @relation("PaymentReconciler")
   createdDisbursements Disbursement[]
+  updatedSettings      SystemSetting[]
+  createdTemplates     CommunicationTemplate[]
 
   @@index([roleId])
   @@index([departmentId])
@@ -1012,4 +1014,31 @@ model IntegrationConfig {
   updatedAt    DateTime            @updatedAt
 
   @@map("integration_configs")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedById String?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model CommunicationTemplate {
+  id          String               @id @default(cuid())
+  name        String
+  channel     CommunicationChannel
+  subject     String?
+  body        String
+  isActive    Boolean              @default(true)
+  createdById String?
+  createdBy   User?                @relation(fields: [createdById], references: [id])
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@map("communication_templates")
 }

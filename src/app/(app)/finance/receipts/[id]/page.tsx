@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPaymentReceipt } from "@/lib/services/finance.service";
+import { getSettingValue } from "@/lib/services/settings.service";
 import { formatCurrency } from "@/lib/utils";
 import { PrintReceiptButton } from "@/components/finance/print-receipt-button";
 
@@ -14,7 +15,7 @@ const METHOD_LABELS: Record<string, string> = {
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const payment = await getPaymentReceipt(id);
+  const [payment, companyName] = await Promise.all([getPaymentReceipt(id), getSettingValue("companyName")]);
   if (!payment) notFound();
 
   return (
@@ -27,7 +28,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <div className="rounded-lg border border-border bg-card p-8 print:border-none print:p-0">
         <div className="mb-6 flex items-start justify-between border-b border-border pb-6">
           <div>
-            <p className="text-lg font-bold">Masterways Group of Companies</p>
+            <p className="text-lg font-bold">{companyName}</p>
             <p className="text-sm text-muted-foreground">Official Payment Receipt</p>
           </div>
           <div className="text-right">

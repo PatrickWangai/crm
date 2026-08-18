@@ -20,6 +20,9 @@ import {
   BarChart3,
   Plug,
   Workflow as WorkflowIcon,
+  Settings,
+  MessagesSquare,
+  HeartPulse,
 } from "lucide-react";
 
 export interface NavItem {
@@ -105,6 +108,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Business Units", href: "/admin/business-units", icon: Landmark, permission: "departments.manage" },
       { label: "SLA Policies", href: "/admin/sla", icon: Timer, permission: "settings.manage" },
       { label: "Workflow Automations", href: "/admin/workflows", icon: WorkflowIcon, permission: "settings.manage" },
+      { label: "System Settings", href: "/admin/settings", icon: Settings, permission: "settings.manage" },
+      { label: "Communication Templates", href: "/admin/communication-templates", icon: MessagesSquare, permission: "settings.manage" },
+      { label: "System Health", href: "/admin/system-health", icon: HeartPulse, permission: "settings.manage" },
       { label: "Integrations", href: "/admin/integrations", icon: Plug, permission: "integrations.manage" },
       { label: "Audit Log", href: "/admin/audit-log", icon: ClipboardList, permission: "audit_logs.view" },
     ],
