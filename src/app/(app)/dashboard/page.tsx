@@ -1,21 +1,52 @@
 import Link from "next/link";
 import { requireUser, hasPermission } from "@/lib/rbac/guard";
-import { getMyOrgContext, getOrgOverview, getRecentActivity } from "@/lib/services/dashboard.service";
+import {
+  getFinanceSnapshot,
+  getMyOrgContext,
+  getMyPipelineSnapshot,
+  getMyTicketSnapshot,
+  getOrgOverview,
+  getPropertySnapshot,
+  getRecentActivity,
+} from "@/lib/services/dashboard.service";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { BusinessUnitChart, RoleDistributionChart } from "@/components/dashboard/org-charts";
-import { Users, Building2, Landmark, ShieldCheck, Bell, ClipboardList, ArrowRight, UserCog } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import {
+  Users,
+  Building2,
+  Landmark,
+  ShieldCheck,
+  Bell,
+  ClipboardList,
+  ArrowRight,
+  UserCog,
+  Users2,
+  Ticket,
+  Home,
+  Receipt,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [overview, activity, orgContext] = await Promise.all([getOrgOverview(), getRecentActivity(6), getMyOrgContext()]);
+  const [overview, activity, orgContext, pipeline, tickets, property, finance] = await Promise.all([
+    getOrgOverview(),
+    getRecentActivity(6),
+    getMyOrgContext(),
+    getMyPipelineSnapshot(),
+    getMyTicketSnapshot(),
+    getPropertySnapshot(),
+    getFinanceSnapshot(),
+  ]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const hasOperationalCards = pipeline || tickets || property || finance;
 
   return (
     <div className="space-y-6">
@@ -34,6 +65,79 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      {hasOperationalCards && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {pipeline && (
+            <Link href="/leads">
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="flex items-start justify-between gap-3 pt-5">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">{pipeline.scopedToSelf ? "My pipeline" : "Sales pipeline"}</p>
+                    <p className="text-2xl font-semibold tracking-tight">{pipeline.active}</p>
+                    <p className="text-xs text-muted-foreground">
+                      active &middot; {pipeline.won} won &middot; {pipeline.lost} lost
+                    </p>
+                  </div>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Users2 className="size-4.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+          {tickets && (
+            <Link href="/tickets">
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="flex items-start justify-between gap-3 pt-5">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">{tickets.scopedToSelf ? "My open tickets" : "Open tickets"}</p>
+                    <p className="text-2xl font-semibold tracking-tight">{tickets.open}</p>
+                    <p className="text-xs text-muted-foreground">{tickets.breached > 0 ? `${tickets.breached} SLA breached` : "none breached"}</p>
+                  </div>
+                  <div className={`flex size-9 shrink-0 items-center justify-center rounded-md ${tickets.breached > 0 ? "bg-destructive/10 text-destructive" : "bg-info-muted text-info"}`}>
+                    <Ticket className="size-4.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+          {property && (
+            <Link href="/properties">
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="flex items-start justify-between gap-3 pt-5">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Occupancy</p>
+                    <p className="text-2xl font-semibold tracking-tight">{property.occupancyRate}%</p>
+                    <p className="text-xs text-muted-foreground">
+                      {property.occupied}/{property.total} units &middot; {property.openMaintenance} open job cards
+                    </p>
+                  </div>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-success-muted text-success">
+                    <Home className="size-4.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+          {finance && (
+            <Link href="/finance">
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="flex items-start justify-between gap-3 pt-5">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Outstanding</p>
+                    <p className="text-2xl font-semibold tracking-tight">{formatCurrency(finance.outstanding)}</p>
+                    <p className="text-xs text-muted-foreground">{finance.overdueCount} overdue invoice(s)</p>
+                  </div>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-warning-muted text-warning">
+                    <Receipt className="size-4.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+        </div>
+      )}
 
       {overview && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
