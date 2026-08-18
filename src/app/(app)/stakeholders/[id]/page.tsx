@@ -4,6 +4,8 @@ import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getStakeholderActivity, getStakeholderProfile } from "@/lib/services/stakeholder.service";
 import { listBusinessUnitOptions, listDepartmentOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { isAiAssistantEnabled, summarizeStakeholderHistory } from "@/lib/services/ai.service";
+import { AiHistorySummaryCard } from "@/components/ai/ai-history-summary-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -65,19 +67,23 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
   let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
+  let aiEnabled: boolean;
   try {
-    [profile, activity, businessUnits, staff, departments] = await Promise.all([
+    [profile, activity, businessUnits, staff, departments, aiEnabled] = await Promise.all([
       getStakeholderProfile(id),
       getStakeholderActivity(id),
       listBusinessUnitOptions(),
       listUserOptions(),
       listDepartmentOptions(),
+      isAiAssistantEnabled(),
     ]);
   } catch (err) {
     if (err instanceof ForbiddenError) redirect("/forbidden");
     throw err;
   }
   if (!profile) notFound();
+
+  const aiSummary = aiEnabled ? summarizeStakeholderHistory(profile) : null;
 
   const canUpdate = hasPermission(user, "stakeholders.update");
   const canDelete = hasPermission(user, "stakeholders.delete");
@@ -194,6 +200,8 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
               <SnapshotStat icon={MessageSquare} label="Interactions" value={profile.communications.length} />
             </CardContent>
           </Card>
+
+          {aiSummary && <AiHistorySummaryCard summary={aiSummary} />}
         </TabsContent>
 
         {/* Activity */}

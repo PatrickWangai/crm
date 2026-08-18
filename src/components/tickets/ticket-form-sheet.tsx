@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,8 @@ import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle, S
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createTicketAction, updateTicketAction } from "@/app/(app)/tickets/actions";
 import { TICKET_CATEGORIES, TICKET_PRIORITIES, type TicketFormState } from "@/lib/validation/ticket";
+import { classifyTicket } from "@/lib/ai/classify-ticket";
+import { useAiAssistantEnabled } from "@/lib/ai/ai-context";
 import type { Option } from "@/components/admin/users/user-form-sheet";
 
 const initialState: TicketFormState = {};
@@ -61,11 +63,17 @@ export function TicketFormSheet({
   const action = mode === "create" ? createTicketAction : updateTicketAction.bind(null, ticketId!);
   const [state, formAction] = useActionState(action, initialState);
   const [stakeholderId, setStakeholderId] = useState(defaultValues?.stakeholderId ?? "");
+  const [subject, setSubject] = useState(defaultValues?.subject ?? "");
+  const [description, setDescription] = useState(defaultValues?.description ?? "");
   const [category, setCategory] = useState(defaultValues?.category ?? TICKET_CATEGORIES[0]);
   const [priority, setPriority] = useState(defaultValues?.priority ?? "MEDIUM");
   const [businessUnitId, setBusinessUnitId] = useState(defaultValues?.businessUnitId ?? "");
   const [departmentId, setDepartmentId] = useState(defaultValues?.departmentId ?? "");
   const [assignedToId, setAssignedToId] = useState(defaultValues?.assignedToId ?? "");
+
+  const aiEnabled = useAiAssistantEnabled();
+  const classification = useMemo(() => (aiEnabled && mode === "create" ? classifyTicket(subject, description) : null), [aiEnabled, mode, subject, description]);
+  const classificationApplied = classification && classification.category === category && classification.priority === priority;
 
   const [prevState, setPrevState] = useState(state);
   if (state !== prevState) {
@@ -123,7 +131,17 @@ export function TicketFormSheet({
               {state.fieldErrors?.stakeholderId && <p className="text-xs text-destructive">{state.fieldErrors.stakeholderId[0]}</p>}
             </div>
 
-            <Field label="Subject" name="subject" error={state.fieldErrors?.subject} defaultValue={defaultValues?.subject} />
+            <div className="space-y-1.5">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                name="subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                aria-invalid={!!state.fieldErrors?.subject}
+              />
+              {state.fieldErrors?.subject && <p className="text-xs text-destructive">{state.fieldErrors.subject[0]}</p>}
+            </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="description">Description</Label>
@@ -131,12 +149,39 @@ export function TicketFormSheet({
                 id="description"
                 name="description"
                 rows={3}
-                defaultValue={defaultValues?.description ?? ""}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="What is the customer reporting or requesting?"
                 className="w-full resize-y rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               {state.fieldErrors?.description && <p className="text-xs text-destructive">{state.fieldErrors.description[0]}</p>}
             </div>
+
+            {classification && !classificationApplied && (
+              <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/[0.03] px-3 py-2 text-xs">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                  <div>
+                    <p className="font-medium text-foreground">
+                      AI suggests: {classification.category} · {classification.priority.charAt(0) + classification.priority.slice(1).toLowerCase()} priority
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground">{classification.reason}</p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    setCategory(classification.category);
+                    setPriority(classification.priority);
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -233,29 +278,5 @@ export function TicketFormSheet({
         </form>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function Field({
-  label,
-  name,
-  type = "text",
-  error,
-  defaultValue,
-  placeholder,
-}: {
-  label: string;
-  name: string;
-  type?: string;
-  error?: string[];
-  defaultValue?: string;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} aria-invalid={!!error} />
-      {error && <p className="text-xs text-destructive">{error[0]}</p>}
-    </div>
   );
 }

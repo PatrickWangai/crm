@@ -4,23 +4,26 @@ import {
   getLeadPipelineReport,
   getLeadSourceReport,
   getMaintenanceReport,
+  getMonthlyRevenueTrend,
   getOccupancyReport,
   getTaskReport,
   getTicketSlaReport,
 } from "@/lib/services/report.service";
+import { isAiAssistantEnabled, summarizeReportInsights } from "@/lib/services/ai.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FunnelChart, DistributionBarChart, StatusPieChart } from "@/components/reports/report-charts";
 import { ExportReportButton } from "@/components/reports/export-report-button";
+import { AiReportInsightsCard } from "@/components/ai/ai-report-insights-card";
 import { formatCurrency, labelize } from "@/lib/utils";
 import { TrendingUp, Ticket, Home, Receipt, Wrench, CheckSquare, Target, Percent } from "lucide-react";
 
 export default async function ReportsPage() {
   await requireAnyPermissionOrRedirect(["reports.view"]);
 
-  const [pipeline, sources, ticketSla, occupancy, finance, maintenance, tasks] = await Promise.all([
+  const [pipeline, sources, ticketSla, occupancy, finance, maintenance, tasks, monthlyRevenue, aiEnabled] = await Promise.all([
     getLeadPipelineReport(),
     getLeadSourceReport(),
     getTicketSlaReport(),
@@ -28,7 +31,11 @@ export default async function ReportsPage() {
     getFinanceReport(),
     getMaintenanceReport(),
     getTaskReport(),
+    getMonthlyRevenueTrend(),
+    isAiAssistantEnabled(),
   ]);
+
+  const aiInsights = aiEnabled ? summarizeReportInsights({ pipeline, ticketSla, occupancy, finance, maintenance, monthlyRevenue }) : null;
 
   return (
     <div className="space-y-8">
@@ -47,6 +54,8 @@ export default async function ReportsPage() {
           />
         }
       />
+
+      {aiInsights && <AiReportInsightsCard insights={aiInsights} />}
 
       {/* Sales pipeline */}
       <section className="space-y-4">

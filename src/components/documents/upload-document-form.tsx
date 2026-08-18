@@ -2,9 +2,11 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { guessDocumentType, type DocumentTypeGuess } from "@/lib/ai/document-extraction";
+import { useAiAssistantEnabled } from "@/lib/ai/ai-context";
 import type { DocumentFormState } from "@/lib/validation/communication";
 
 const initialState: DocumentFormState = {};
@@ -29,7 +31,15 @@ type UploadAction = (prevState: DocumentFormState, formData: FormData) => Promis
 export function UploadDocumentForm({ action }: { action: UploadAction }) {
   const [state, formAction] = useActionState(action, initialState);
   const [accessLevel, setAccessLevel] = useState("internal");
+  const [detected, setDetected] = useState<DocumentTypeGuess | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const aiEnabled = useAiAssistantEnabled();
+
+  const [prevState, setPrevState] = useState(state);
+  if (state !== prevState) {
+    setPrevState(state);
+    if (state.success) setDetected(null);
+  }
 
   useEffect(() => {
     if (state.success) formRef.current?.reset();
@@ -44,6 +54,7 @@ export function UploadDocumentForm({ action }: { action: UploadAction }) {
           name="file"
           required
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt"
+          onChange={(e) => setDetected(aiEnabled ? guessDocumentType(e.target.files?.[0]?.name ?? "") : null)}
           className="flex-1 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80"
         />
         <input type="hidden" name="accessLevel" value={accessLevel} />
@@ -61,6 +72,15 @@ export function UploadDocumentForm({ action }: { action: UploadAction }) {
         </Select>
         <SubmitButton />
       </div>
+      {detected && (
+        <p className="flex items-start gap-1.5 rounded-md border border-primary/30 bg-primary/[0.03] px-2.5 py-1.5 text-xs text-muted-foreground">
+          <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <span>
+            AI: looks like a <span className="font-medium text-foreground">{detected.docType}</span>. A live integration would extract:{" "}
+            {detected.expectedFields.join(", ")}.
+          </span>
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">PDF, Word, Excel, image or text files up to 15MB. Re-uploading the same filename adds a new version.</p>
     </form>
   );

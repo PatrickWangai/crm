@@ -20,7 +20,7 @@ function SubmitButton() {
   );
 }
 
-export function TicketCommentForm({ ticketId }: { ticketId: string }) {
+export function TicketCommentForm({ ticketId, initialValue }: { ticketId: string; initialValue?: string }) {
   const action = addTicketCommentAction.bind(null, ticketId);
   const [state, formAction] = useActionState(action, initialState);
   const [isInternal, setIsInternal] = useState(true);
@@ -36,6 +36,7 @@ export function TicketCommentForm({ ticketId }: { ticketId: string }) {
       <textarea
         name="comment"
         rows={2}
+        defaultValue={initialValue}
         placeholder="Add an internal note or a message to the customer..."
         className="w-full resize-y rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />

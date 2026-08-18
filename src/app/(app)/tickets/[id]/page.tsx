@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getTicketDetail } from "@/lib/services/ticket.service";
 import { listBusinessUnitOptions, listDepartmentOptions, listStakeholderOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { isAiAssistantEnabled, suggestTicketReply } from "@/lib/services/ai.service";
 import {
   logTicketCommunicationAction,
   uploadTicketDocumentAction,
@@ -22,7 +23,7 @@ import { TicketFormSheet } from "@/components/tickets/ticket-form-sheet";
 import { DeleteTicketButton } from "@/components/tickets/delete-ticket-button";
 import { TicketStatusControl } from "@/components/tickets/ticket-status-control";
 import { AssignTicketSelect } from "@/components/tickets/assign-ticket-select";
-import { TicketCommentForm } from "@/components/tickets/ticket-comment-form";
+import { TicketCommentSection } from "@/components/tickets/ticket-comment-section";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
@@ -54,19 +55,32 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
+  let aiEnabled: boolean;
   try {
-    [ticket, stakeholders, businessUnits, departments, staff] = await Promise.all([
+    [ticket, stakeholders, businessUnits, departments, staff, aiEnabled] = await Promise.all([
       getTicketDetail(id),
       listStakeholderOptions(),
       listBusinessUnitOptions(),
       listDepartmentOptions(),
       listUserOptions(),
+      isAiAssistantEnabled(),
     ]);
   } catch (err) {
     if (err instanceof ForbiddenError) redirect("/forbidden");
     throw err;
   }
   if (!ticket) notFound();
+
+  const suggestedReply =
+    aiEnabled && !["COMPLETED", "CLOSED"].includes(ticket.status)
+      ? suggestTicketReply({
+          subject: ticket.subject,
+          category: ticket.category,
+          priority: ticket.priority,
+          stakeholderFirstName: ticket.stakeholder.firstName,
+          latestPublicComment: ticket.comments.find((c) => !c.isInternal)?.comment ?? null,
+        }).text
+      : null;
 
   const canUpdate = hasPermission(user, "tickets.update");
   const canDelete = hasPermission(user, "tickets.delete");
@@ -184,7 +198,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <CardDescription>Internal notes and status updates on this ticket.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {canUpdate && <TicketCommentForm ticketId={ticket.id} />}
+              {canUpdate && <TicketCommentSection ticketId={ticket.id} suggestedReply={suggestedReply} />}
               {ticket.comments.length === 0 ? (
                 <EmptyState icon={MessageSquare} title="No comments yet" className="border-none py-8" />
               ) : (

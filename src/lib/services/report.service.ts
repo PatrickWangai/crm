@@ -124,3 +124,28 @@ export async function getTaskReport() {
   const byStatus = await prisma.task.groupBy({ by: ["status"], _count: true });
   return { byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })) };
 }
+
+/** Last 6 months of collected payments, bucketed by calendar month — feeds the AI trend forecast on /reports. */
+export async function getMonthlyRevenueTrend() {
+  await requireAnyPermission(["reports.view"]);
+
+  const since = new Date();
+  since.setMonth(since.getMonth() - 5);
+  since.setDate(1);
+  since.setHours(0, 0, 0, 0);
+
+  const payments = await prisma.payment.findMany({ where: { paidAt: { gte: since } }, select: { paidAt: true, amount: true } });
+
+  const buckets = new Map<string, number>();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(since);
+    d.setMonth(d.getMonth() + i);
+    buckets.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, 0);
+  }
+  for (const p of payments) {
+    const key = `${p.paidAt.getFullYear()}-${String(p.paidAt.getMonth() + 1).padStart(2, "0")}`;
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + Number(p.amount));
+  }
+
+  return Array.from(buckets.entries()).map(([month, total]) => ({ month, total }));
+}
