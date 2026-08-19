@@ -12,6 +12,7 @@ export default async function LoginPage() {
   if (user) redirect("/dashboard");
 
   const roleName = (slug: string) => ROLES.find((r) => r.slug === slug)?.name ?? slug;
+  const showDemoCredentials = process.env.SHOW_DEMO_CREDENTIALS === "true";
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
@@ -66,25 +67,27 @@ export default async function LoginPage() {
 
           <LoginForm />
 
-          <details className="rounded-md border border-border bg-secondary/40 px-3 py-2.5 text-xs text-muted-foreground">
-            <summary className="cursor-pointer select-none font-medium text-foreground">
-              Demo accounts (internal testing)
-            </summary>
-            <div className="mt-2 space-y-1">
-              <p>Each demo account below has its own distinct password.</p>
-              <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1">
-                {DEMO_ACCOUNTS.map((account) => (
-                  <li key={account.email} className="space-y-0.5 border-b border-border/60 pb-1.5 last:border-none">
-                    <p className="truncate font-medium text-foreground">{roleName(account.roleSlug)}</p>
-                    <div className="flex items-center justify-between gap-2">
-                      <code className="truncate text-foreground/80">{account.email}</code>
-                      <code className="shrink-0 text-foreground/80">{account.password}</code>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </details>
+          {showDemoCredentials && (
+            <details className="rounded-md border border-border bg-secondary/40 px-3 py-2.5 text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none font-medium text-foreground">
+                Demo accounts (internal testing)
+              </summary>
+              <div className="mt-2 space-y-1">
+                <p>Each demo account below has its own distinct password.</p>
+                <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                  {DEMO_ACCOUNTS.map((account) => (
+                    <li key={account.email} className="space-y-0.5 border-b border-border/60 pb-1.5 last:border-none">
+                      <p className="truncate font-medium text-foreground">{roleName(account.roleSlug)}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <code className="truncate text-foreground/80">{account.email}</code>
+                        <code className="shrink-0 text-foreground/80">{account.password}</code>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
+          )}
 
           <p className="text-center text-xs text-muted-foreground">
             Trouble signing in? Contact your{" "}

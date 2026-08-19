@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { publicSupportRequestSchema } from "@/lib/validation/public-support";
 import { submitPublicSupportRequest } from "@/lib/services/public-support.service";
 import { toErrorResponse } from "@/lib/api/errors";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 
 // Same fields as the CRM's own /help form, but businessUnitCode (a stable,
 // publicly-knowable code like "MRE") instead of businessUnitId (an opaque
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
   const apiKey = request.headers.get("x-api-key");
   if (!apiKey || !process.env.PUBLIC_API_KEY || apiKey !== process.env.PUBLIC_API_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Defense in depth: the caller is trusted (valid key), but this still
+  // caps how much damage a bug or compromise on the calling side can do.
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (!checkRateLimit("bridge-submit", ip, 60)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
   try {

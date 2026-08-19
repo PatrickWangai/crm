@@ -365,6 +365,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "communications.create",
     "documents.upload",
     "notifications.view_own",
+    "tickets.view_own",
   ],
   "sacco-sales-marketing": BASE_SALES,
   "insurance-sales-marketing": BASE_SALES,

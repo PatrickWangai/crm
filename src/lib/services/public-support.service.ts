@@ -12,15 +12,33 @@ function cleanId(value?: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-// Broader than the "Billing Inquiry" category tag alone: a customer might
-// pick "Complaint" or "General Inquiry" for something that's actually about
-// money, so route on wording too, not just whichever category they clicked.
-const FINANCE_KEYWORDS = ["invoice", "bill", "billing", "payment", "charge", "refund", "receipt", "overcharged", "rent", "arrears", "disbursement", "statement"];
+/**
+ * Which department(s) beyond the default tickets.assign holders (CEO,
+ * Customer Care) should be notified of a new public complaint — matched by
+ * exact category OR by wording, since a customer might tag something
+ * "Complaint"/"General Inquiry" that's actually about money or a leaking
+ * pipe rather than picking the "obvious" category. Add a row here to route
+ * a new department; each permissionCode should be one that department
+ * actually holds (checked against ROLE_PERMISSIONS).
+ */
+const DEPARTMENT_ROUTES: { permissionCode: string; categories: string[]; keywords: string[] }[] = [
+  {
+    permissionCode: "finance.view",
+    categories: ["Billing Inquiry"],
+    keywords: ["invoice", "bill", "billing", "payment", "charge", "refund", "receipt", "overcharged", "rent", "arrears", "disbursement", "statement"],
+  },
+  {
+    permissionCode: "maintenance.manage",
+    categories: ["Maintenance Request"],
+    keywords: ["leak", "broken", "repair", "plumbing", "electrical", "faulty", "not working", "burst", "flooding"],
+  },
+];
 
-function isFinanceRelated(category: string, subject: string, description: string): boolean {
-  if (category === "Billing Inquiry") return true;
+function matchedDepartmentPermissions(category: string, subject: string, description: string): string[] {
   const text = `${subject} ${description}`.toLowerCase();
-  return FINANCE_KEYWORDS.some((k) => text.includes(k));
+  return DEPARTMENT_ROUTES.filter((route) => route.categories.includes(category) || route.keywords.some((k) => text.includes(k))).map(
+    (route) => route.permissionCode,
+  );
 }
 
 async function nextTicketNumber(): Promise<string> {
@@ -107,15 +125,11 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
     newValue: { subject: ticket.subject, category: ticket.category, priority: ticket.priority },
   });
 
-  const financeRelated = isFinanceRelated(ticket.category, ticket.subject, ticket.description);
+  const notifyPermissionCodes = ["tickets.assign", ...matchedDepartmentPermissions(ticket.category, ticket.subject, ticket.description)];
   const recipients = await prisma.user.findMany({
     where: {
       status: "ACTIVE",
-      role: {
-        rolePermissions: {
-          some: { permission: { code: financeRelated ? { in: ["tickets.assign", "finance.view"] } : "tickets.assign" } },
-        },
-      },
+      role: { rolePermissions: { some: { permission: { code: { in: notifyPermissionCodes } } } } },
     },
     select: { id: true },
     distinct: ["id"],

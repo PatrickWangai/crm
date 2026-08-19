@@ -7,16 +7,23 @@ import {
   type TrackRequestFormState,
 } from "@/lib/validation/public-support";
 import { submitPublicSupportRequest, trackPublicSupportRequest } from "@/lib/services/public-support.service";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
 function friendlyError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong. Please try again.";
 }
+
+const RATE_LIMIT_MESSAGE = "Too many requests from your connection. Please wait a few minutes and try again.";
 
 export async function submitPublicSupportRequestAction(_prev: PublicSupportFormState, formData: FormData): Promise<PublicSupportFormState> {
   // Honeypot: a real visitor never fills this hidden field. Bots that do get a
   // fake "success" response so they don't learn to leave it empty next time.
   if (formData.get("companyWebsite")) {
     return { success: true, ticketNumber: "TKT-000000" };
+  }
+
+  if (!checkRateLimit("help-submit", await getClientIp(), 5)) {
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
   const parsed = publicSupportRequestSchema.safeParse({
@@ -44,6 +51,10 @@ export async function submitPublicSupportRequestAction(_prev: PublicSupportFormS
 }
 
 export async function trackPublicSupportRequestAction(_prev: TrackRequestFormState, formData: FormData): Promise<TrackRequestFormState> {
+  if (!checkRateLimit("help-track", await getClientIp(), 20)) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const parsed = trackRequestSchema.safeParse({
     ticketNumber: formData.get("ticketNumber"),
     email: formData.get("email"),
@@ -75,6 +86,10 @@ export type ChatTicketResult = { ok: true; ticketNumber: string; expectedRespons
  * description to keep the conversation short (no separate "subject" turn).
  */
 export async function chatCreateTicketAction(input: ChatTicketInput): Promise<ChatTicketResult> {
+  if (!checkRateLimit("help-submit", await getClientIp(), 5)) {
+    return { ok: false, error: RATE_LIMIT_MESSAGE };
+  }
+
   const subject = input.description.length > 80 ? `${input.description.slice(0, 80)}…` : input.description;
 
   const parsed = publicSupportRequestSchema.safeParse({
@@ -100,6 +115,10 @@ export async function chatCreateTicketAction(input: ChatTicketInput): Promise<Ch
 export type ChatTrackResult = { ok: true; result: NonNullable<Awaited<ReturnType<typeof trackPublicSupportRequest>>> } | { ok: false };
 
 export async function chatTrackTicketAction(ticketNumber: string, email: string): Promise<ChatTrackResult> {
+  if (!checkRateLimit("help-track", await getClientIp(), 20)) {
+    return { ok: false };
+  }
+
   const parsed = trackRequestSchema.safeParse({ ticketNumber, email });
   if (!parsed.success) return { ok: false };
 
