@@ -93,6 +93,13 @@ export default async function LoginPage() {
             </Link>
             .
           </p>
+          <p className="text-center text-xs text-muted-foreground">
+            Customer with a complaint or question?{" "}
+            <Link href="/help" className="text-primary hover:underline">
+              Visit Help &amp; Support
+            </Link>
+            .
+          </p>
         </div>
       </div>
     </div>

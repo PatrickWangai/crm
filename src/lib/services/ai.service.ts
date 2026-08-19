@@ -8,11 +8,16 @@ export interface AiSuggestion {
   urgency: "low" | "medium" | "high";
 }
 
+/** Same check as isAiAssistantEnabled but callable from unauthenticated public surfaces (e.g. the Help & Support portal) — the connector status itself isn't sensitive. */
+export async function isAiAssistantEnabledPublic(): Promise<boolean> {
+  const config = await prisma.integrationConfig.findUnique({ where: { provider: "AI_ASSISTANT" } });
+  return config?.status !== "DISCONNECTED";
+}
+
 /** Whether the AI Assistant integration is enabled — DISCONNECTED hides AI features entirely. */
 export async function isAiAssistantEnabled(): Promise<boolean> {
   await requireAuth();
-  const config = await prisma.integrationConfig.findUnique({ where: { provider: "AI_ASSISTANT" } });
-  return config?.status !== "DISCONNECTED";
+  return isAiAssistantEnabledPublic();
 }
 
 interface LeadForSuggestion {
