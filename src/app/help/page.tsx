@@ -7,6 +7,7 @@ import { getSettingValue } from "@/lib/services/settings.service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PublicSupportForm } from "@/components/support/public-support-form";
 import { TrackRequestForm } from "@/components/support/track-request-form";
+import { HelpChatbot } from "@/components/support/help-chatbot";
 
 export const metadata = { title: "Help & Support — Masterways" };
 // No auth check on this route (it's public), so nothing else forces dynamic
@@ -77,6 +78,8 @@ export default async function HelpAndSupportPage() {
           .
         </p>
       </main>
+
+      {aiEnabled && <HelpChatbot supportEmail={supportEmail} />}
     </div>
   );
 }
