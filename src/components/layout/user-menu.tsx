@@ -11,17 +11,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { initials } from "@/lib/utils";
+import { roleInitials } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/logout";
 
 export function UserMenu({
-  firstName,
-  lastName,
   email,
   roleName,
 }: {
-  firstName: string;
-  lastName: string;
   email: string;
   roleName: string;
 }) {
@@ -29,16 +25,16 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 rounded-md p-1 pr-2 outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring">
         <Avatar className="size-8">
-          <AvatarFallback>{initials(firstName, lastName)}</AvatarFallback>
+          <AvatarFallback>{roleInitials(roleName)}</AvatarFallback>
         </Avatar>
         <div className="hidden text-left leading-tight sm:block">
-          <p className="text-sm font-medium">{firstName} {lastName}</p>
-          <p className="text-xs text-muted-foreground">{roleName}</p>
+          <p className="text-sm font-medium">{roleName}</p>
+          <p className="truncate text-xs text-muted-foreground">{email}</p>
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
-          <p className="text-sm font-medium text-foreground">{firstName} {lastName}</p>
+          <p className="text-sm font-medium text-foreground">{roleName}</p>
           <p className="truncate text-xs text-muted-foreground">{email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

@@ -21,7 +21,7 @@ export async function Topbar() {
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         {granted.has("users.manage") && <GlobalSearch />}
         <NotificationBell notifications={notifications} unreadCount={unreadCount} />
-        <UserMenu firstName={user.firstName} lastName={user.lastName} email={user.email} roleName={user.role.name} />
+        <UserMenu email={user.email} roleName={user.role.name} />
       </div>
     </header>
   );

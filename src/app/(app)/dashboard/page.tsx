@@ -10,7 +10,6 @@ import {
   getRecentActivity,
 } from "@/lib/services/dashboard.service";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -52,10 +51,9 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold tracking-tight">
-          {greeting}, {user.firstName}
+          {greeting}, {user.role.name}
         </h1>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <Badge>{user.role.name}</Badge>
           {user.department && <span>{user.department.name}</span>}
           {user.businessUnit && (
             <>
