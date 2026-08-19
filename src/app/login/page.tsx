@@ -1,10 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { LoginForm } from "@/components/auth/login-form";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/lib/demo-accounts";
 import { ROLES } from "@/lib/rbac/roles";
-import { Building2, ShieldCheck, Workflow, BarChart3 } from "lucide-react";
+import { ShieldCheck, Workflow, BarChart3 } from "lucide-react";
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
@@ -17,8 +18,8 @@ export default async function LoginPage() {
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(47,127,209,0.35),transparent_55%)]" />
         <div className="relative flex items-center gap-2.5">
-          <div className="flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-white">
-            <Building2 className="size-5" />
+          <div className="flex size-9 items-center justify-center rounded-md bg-white p-1.5">
+            <Image src="/logo.jpeg" alt="Masterways" width={36} height={36} className="size-full object-contain" />
           </div>
           <div>
             <p className="text-sm font-semibold text-white">Masterways CRM</p>
@@ -51,8 +52,8 @@ export default async function LoginPage() {
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-1.5 lg:hidden">
             <div className="mb-4 flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-md bg-primary text-white">
-                <Building2 className="size-5" />
+              <div className="flex size-9 items-center justify-center rounded-md border border-border bg-white p-1.5">
+                <Image src="/logo.jpeg" alt="Masterways" width={36} height={36} className="size-full object-contain" />
               </div>
               <p className="text-sm font-semibold">Masterways CRM</p>
             </div>
