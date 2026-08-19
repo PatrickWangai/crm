@@ -81,7 +81,7 @@ export default async function StakeholdersPage({
                     "",
                     "",
                     "MRE",
-                    "faith.njoki@masterways.co.ke",
+                    "sales-marketing@masterways.co.ke",
                   ],
                 ]}
                 action={importStakeholdersAction}

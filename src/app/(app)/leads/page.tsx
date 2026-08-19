@@ -75,7 +75,7 @@ export default async function LeadsPage({
                     "",
                     "3BR apartment in Kilimani",
                     "MRE",
-                    "faith.njoki@masterways.co.ke",
+                    "sales-marketing@masterways.co.ke",
                     "",
                     "",
                   ],

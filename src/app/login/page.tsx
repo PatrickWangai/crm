@@ -3,7 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { LoginForm } from "@/components/auth/login-form";
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/lib/demo-accounts";
+import { DEMO_ACCOUNTS } from "@/lib/demo-accounts";
 import { ROLES } from "@/lib/rbac/roles";
 import { ShieldCheck, Workflow, BarChart3 } from "lucide-react";
 
@@ -71,15 +71,15 @@ export default async function LoginPage() {
               Demo accounts (internal testing)
             </summary>
             <div className="mt-2 space-y-1">
-              <p>
-                Shared password for every demo account:{" "}
-                <code className="rounded bg-secondary px-1 py-0.5 font-mono text-foreground">{DEMO_PASSWORD}</code>
-              </p>
-              <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
+              <p>Each demo account below has its own distinct password.</p>
+              <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1">
                 {DEMO_ACCOUNTS.map((account) => (
-                  <li key={account.email} className="flex items-center justify-between gap-2">
-                    <span className="truncate">{roleName(account.roleSlug)}</span>
-                    <code className="shrink-0 text-foreground/80">{account.email}</code>
+                  <li key={account.email} className="space-y-0.5 border-b border-border/60 pb-1.5 last:border-none">
+                    <p className="truncate font-medium text-foreground">{roleName(account.roleSlug)}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="truncate text-foreground/80">{account.email}</code>
+                      <code className="shrink-0 text-foreground/80">{account.password}</code>
+                    </div>
                   </li>
                 ))}
               </ul>

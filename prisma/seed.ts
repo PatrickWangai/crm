@@ -2,7 +2,7 @@ import { PrismaClient, type BusinessUnitCode } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { ROLES } from "../src/lib/rbac/roles";
 import { PERMISSIONS, ROLE_PERMISSIONS } from "../src/lib/rbac/permissions";
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../src/lib/demo-accounts";
+import { DEMO_ACCOUNTS } from "../src/lib/demo-accounts";
 
 const prisma = new PrismaClient();
 
@@ -28,21 +28,21 @@ const DEPARTMENTS: { code: string; name: string; businessUnit: BusinessUnitCode 
 
 // email -> reportingTo email
 const REPORTING_LINES: Record<string, string> = {
-  "esther.achieng@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "samuel.kamau@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "mercy.chebet@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "victor.mutiso@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "anne.wairimu@masterways.co.ke": "diana.auma@masterways.co.ke",
-  "brian.otieno@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "faith.njoki@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "kevin.omondi@masterways.co.ke": "diana.auma@masterways.co.ke",
-  "diana.auma@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "joseph.kariuki@masterways.co.ke": "anne.wairimu@masterways.co.ke",
-  "caroline.nduta@masterways.co.ke": "esther.achieng@masterways.co.ke",
-  "felix.mbugua@masterways.co.ke": "daniel.kiptoo@masterways.co.ke",
-  "ruth.akinyi@masterways.co.ke": "esther.achieng@masterways.co.ke",
-  "lucy.wambui@masterways.co.ke": "samuel.kamau@masterways.co.ke",
-  "peter.mwangi@masterways.co.ke": "grace.wanjiru@masterways.co.ke",
+  "management@masterways.co.ke": "ceo@masterways.co.ke",
+  "cfo@masterways.co.ke": "ceo@masterways.co.ke",
+  "hr-administration@masterways.co.ke": "ceo@masterways.co.ke",
+  "ict-administrator@masterways.co.ke": "ceo@masterways.co.ke",
+  "property-manager@masterways.co.ke": "regional-manager@masterways.co.ke",
+  "customer-care@masterways.co.ke": "ceo@masterways.co.ke",
+  "sales-marketing@masterways.co.ke": "ceo@masterways.co.ke",
+  "regional-property-coordinator@masterways.co.ke": "regional-manager@masterways.co.ke",
+  "regional-manager@masterways.co.ke": "ceo@masterways.co.ke",
+  "assistant-property-manager@masterways.co.ke": "property-manager@masterways.co.ke",
+  "sacco-sales-marketing@masterways.co.ke": "management@masterways.co.ke",
+  "insurance-sales-marketing@masterways.co.ke": "ceo@masterways.co.ke",
+  "sacco-credit-committee@masterways.co.ke": "management@masterways.co.ke",
+  "finance@masterways.co.ke": "cfo@masterways.co.ke",
+  "internal-auditor@masterways.co.ke": "board-of-directors@masterways.co.ke",
 };
 
 const SLA_POLICIES: {
@@ -160,7 +160,6 @@ async function main() {
   }
 
   console.log("Seeding demo users...");
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
   const userIdByEmail = new Map<string, string>();
 
   let sequence = 1;
@@ -169,6 +168,7 @@ async function main() {
     if (!roleId) throw new Error(`Missing role for slug ${account.roleSlug}`);
 
     const employeeId = `MW-${String(sequence).padStart(4, "0")}`;
+    const passwordHash = await hashPassword(account.password);
     sequence += 1;
 
     const user = await prisma.user.upsert({
@@ -176,6 +176,7 @@ async function main() {
       update: {
         firstName: account.firstName,
         lastName: account.lastName,
+        passwordHash,
         roleId,
         departmentId: account.departmentCode ? departmentByCode.get(account.departmentCode) : undefined,
         businessUnitId: account.businessUnitCode ? businessUnitByCode.get(account.businessUnitCode) : undefined,
@@ -252,7 +253,7 @@ async function main() {
   }
 
   console.log("Seeding default workflow automations...");
-  const ictAdmin = await prisma.user.findFirst({ where: { email: "victor.mutiso@masterways.co.ke" } });
+  const ictAdmin = await prisma.user.findFirst({ where: { email: "ict-administrator@masterways.co.ke" } });
   for (const wf of WORKFLOWS) {
     const existing = await prisma.workflow.findFirst({ where: { triggerType: wf.triggerType } });
     if (!existing) {
@@ -275,7 +276,7 @@ async function main() {
   console.log(
     `\nSeed complete: ${BUSINESS_UNITS.length} business units, ${DEPARTMENTS.length} departments, ${ROLES.length} roles, ${PERMISSIONS.length} permissions, ${DEMO_ACCOUNTS.length} users, ${SLA_POLICIES.length} SLA policies, ${WORKFLOWS.length} workflow automations, ${COMMUNICATION_TEMPLATES.length} communication templates.`,
   );
-  console.log(`Demo password for every seeded user: ${DEMO_PASSWORD}`);
+  console.log("Each demo account has its own distinct password — see src/lib/demo-accounts.ts or the login page.");
 }
 
 main()
