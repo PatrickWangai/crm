@@ -258,6 +258,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tasks.view_own",
     "tasks.create",
     "notifications.view_own",
+    "tickets.view_own",
   ],
   cfo: [
     "dashboard.view",
@@ -268,6 +269,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "stakeholders.view_all",
     "leases.view_all",
     "employees.view_all",
+    "tickets.view_own",
     "audit_logs.view",
     "notifications.view_own",
   ],

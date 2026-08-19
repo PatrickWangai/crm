@@ -12,6 +12,17 @@ function cleanId(value?: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
+// Broader than the "Billing Inquiry" category tag alone: a customer might
+// pick "Complaint" or "General Inquiry" for something that's actually about
+// money, so route on wording too, not just whichever category they clicked.
+const FINANCE_KEYWORDS = ["invoice", "bill", "billing", "payment", "charge", "refund", "receipt", "overcharged", "rent", "arrears", "disbursement", "statement"];
+
+function isFinanceRelated(category: string, subject: string, description: string): boolean {
+  if (category === "Billing Inquiry") return true;
+  const text = `${subject} ${description}`.toLowerCase();
+  return FINANCE_KEYWORDS.some((k) => text.includes(k));
+}
+
 async function nextTicketNumber(): Promise<string> {
   const count = await prisma.ticket.count();
   return `TKT-${String(count + 1).padStart(6, "0")}`;
@@ -96,9 +107,18 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
     newValue: { subject: ticket.subject, category: ticket.category, priority: ticket.priority },
   });
 
+  const financeRelated = isFinanceRelated(ticket.category, ticket.subject, ticket.description);
   const recipients = await prisma.user.findMany({
-    where: { status: "ACTIVE", role: { rolePermissions: { some: { permission: { code: "tickets.assign" } } } } },
+    where: {
+      status: "ACTIVE",
+      role: {
+        rolePermissions: {
+          some: { permission: { code: financeRelated ? { in: ["tickets.assign", "finance.view"] } : "tickets.assign" } },
+        },
+      },
+    },
     select: { id: true },
+    distinct: ["id"],
   });
   for (const recipient of recipients) {
     await createNotification({

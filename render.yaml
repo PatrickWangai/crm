@@ -22,3 +22,7 @@ services:
         value: 7d
       - key: NODE_ENV
         value: production
+      # Shared secret with the standalone customer Help & Support app's
+      # server-to-server bridge — must match PUBLIC_API_KEY there exactly.
+      - key: PUBLIC_API_KEY
+        value: 7ff32f1144d2c129a717f4c33919b46dded463dd5a4e17ed12bc8402683f80f9
