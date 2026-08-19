@@ -1,0 +1,24 @@
+databases:
+  - name: masterways-crm-db
+    plan: free
+    databaseName: masterways_crm
+    user: masterways_crm
+
+services:
+  - type: web
+    name: masterways-crm
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build && npm run db:seed
+    startCommand: npm run start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: masterways-crm-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: NODE_ENV
+        value: production
