@@ -4,7 +4,7 @@ import type { TicketPriority, TicketStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
-import { notifyTicketAccepted, notifyTicketCompleted } from "@/lib/notifications/ticket-events";
+import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded } from "@/lib/notifications/ticket-events";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
 import { filterVisibleDocuments } from "@/lib/services/document.service";
@@ -273,6 +273,50 @@ export async function acceptTicket(id: string, assignedToId: string, dueAt: Date
   });
 
   await notifyTicketAccepted(ticket, actor);
+
+  return ticket;
+}
+
+/**
+ * Hands a ticket off to a different department entirely — not the same as
+ * reassigning to a different person within the same department (see
+ * assignTicket below). Clears whoever currently owns it and resets status
+ * back to Request Logged (unless already Completed/Closed) so the receiving
+ * department goes through their own Accept step fresh, rather than
+ * inheriting someone else's in-progress work silently.
+ */
+export async function forwardTicketToDepartment(id: string, departmentId: string, note: string | null) {
+  const actor = await requireAnyPermission(["tickets.assign"]);
+  const before = await prisma.ticket.findUniqueOrThrow({ where: { id } });
+  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId }, select: { id: true, name: true } });
+
+  const reopen = before.status !== "COMPLETED" && before.status !== "CLOSED";
+
+  const ticket = await prisma.ticket.update({
+    where: { id },
+    data: {
+      departmentId: department.id,
+      assignedToId: null,
+      status: reopen ? "REQUEST_LOGGED" : undefined,
+    },
+  });
+
+  if (note) {
+    await prisma.ticketComment.create({
+      data: { ticketId: id, userId: actor.id, comment: `Forwarded to ${department.name}: ${note}`, isInternal: true },
+    });
+  }
+
+  await recordAudit({
+    userId: actor.id,
+    action: "ticket.forwarded",
+    entityType: "Ticket",
+    entityId: id,
+    previousValue: { departmentId: before.departmentId, assignedToId: before.assignedToId },
+    newValue: { departmentId: department.id },
+  });
+
+  await notifyTicketForwarded(ticket, department.id, department.name, actor, note);
 
   return ticket;
 }

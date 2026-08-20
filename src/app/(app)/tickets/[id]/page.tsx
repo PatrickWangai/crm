@@ -25,6 +25,7 @@ import { TicketFormSheet } from "@/components/tickets/ticket-form-sheet";
 import { DeleteTicketButton } from "@/components/tickets/delete-ticket-button";
 import { TicketStatusControl } from "@/components/tickets/ticket-status-control";
 import { TicketWorkflowActions } from "@/components/tickets/ticket-workflow-actions";
+import { ForwardDepartmentDialog } from "@/components/tickets/forward-department-dialog";
 import { RoutingCheckNote } from "@/components/tickets/routing-check";
 import { AssignTicketSelect } from "@/components/tickets/assign-ticket-select";
 import { TicketCommentSection } from "@/components/tickets/ticket-comment-section";
@@ -131,6 +132,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <TicketWorkflowActions ticketId={ticket.id} status={ticket.status} currentUserId={user.id} dueAt={ticket.dueAt} canAssign={canAssign} canUpdate={canUpdate} />
+            {canAssign && <ForwardDepartmentDialog ticketId={ticket.id} currentDepartmentId={ticket.departmentId} departments={departments} />}
             {canUpdate && <TicketStatusControl ticketId={ticket.id} currentStatus={ticket.status} />}
             {canUpdate && (
               <TicketFormSheet

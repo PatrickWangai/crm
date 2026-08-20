@@ -11,7 +11,17 @@ import {
   type SendCustomerEmailFormState,
 } from "@/lib/validation/communication";
 import { taskSchema, type TaskFormState } from "@/lib/validation/task";
-import { acceptTicket, assignTicket, addTicketComment, createTicket, deleteTicket, updateTicket, updateTicketStatus, checkSlaRisk } from "@/lib/services/ticket.service";
+import {
+  acceptTicket,
+  assignTicket,
+  forwardTicketToDepartment,
+  addTicketComment,
+  createTicket,
+  deleteTicket,
+  updateTicket,
+  updateTicketStatus,
+  checkSlaRisk,
+} from "@/lib/services/ticket.service";
 import { logCommunication, sendTicketEmailToCustomer } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import { createTask } from "@/lib/services/task.service";
@@ -84,6 +94,17 @@ export async function updateTicketStatusAction(id: string, status: TicketStatus,
 export async function acceptTicketAction(id: string, assignedToId: string, dueAtIso: string | null): Promise<{ error?: string }> {
   try {
     await acceptTicket(id, assignedToId, dueAtIso ? new Date(dueAtIso) : null);
+    revalidatePath("/tickets");
+    revalidatePath(`/tickets/${id}`);
+    return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function forwardTicketAction(id: string, departmentId: string, note: string | null): Promise<{ error?: string }> {
+  try {
+    await forwardTicketToDepartment(id, departmentId, note);
     revalidatePath("/tickets");
     revalidatePath(`/tickets/${id}`);
     return {};

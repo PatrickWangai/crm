@@ -1,6 +1,6 @@
 import "server-only";
 import { createNotification } from "@/lib/services/notification.service";
-import { getTicketWatchers } from "@/lib/services/department-routing";
+import { getTicketWatchers, getDepartmentMembers } from "@/lib/services/department-routing";
 import { sendEmail } from "@/lib/email/resend";
 import { emailShell } from "@/lib/email/templates";
 
@@ -63,6 +63,40 @@ export async function notifyTicketAccepted(ticket: WatchedTicket, acceptedBy: { 
           html: emailShell(
             "A request in your department was picked up",
             `<p style="color:#475467; font-size:14px; line-height:1.5;"><strong>${ticket.ticketNumber}</strong> — ${ticket.subject}<br/>Accepted by ${acceptedBy.firstName} ${acceptedBy.lastName}.</p>`,
+            `/tickets/${ticket.id}`,
+            "View ticket",
+          ),
+        });
+      }
+    }),
+  );
+}
+
+/** Fires when a ticket is forwarded to a different department — tells that department's staff it's now theirs, minus whoever just forwarded it. Targets the department it actually landed in directly (not the category-derived one, which may differ from a manual override). */
+export async function notifyTicketForwarded(
+  ticket: WatchedTicket,
+  newDepartmentId: string,
+  newDepartmentName: string,
+  forwardedBy: { id: string; firstName: string; lastName: string },
+  note: string | null,
+) {
+  const members = (await getDepartmentMembers(newDepartmentId)).filter((m) => m.id !== forwardedBy.id);
+  await Promise.all(
+    members.map(async (m) => {
+      await createNotification({
+        userId: m.id,
+        type: "SYSTEM",
+        title: `Ticket forwarded to ${newDepartmentName}`,
+        message: `${ticket.ticketNumber}: ${ticket.subject} — from ${forwardedBy.firstName} ${forwardedBy.lastName}`,
+        relatedUrl: `/tickets/${ticket.id}`,
+      });
+      if (m.email) {
+        await sendEmail({
+          to: m.email,
+          subject: `Forwarded to ${newDepartmentName}: ${ticket.ticketNumber} — ${ticket.subject}`,
+          html: emailShell(
+            `A request was forwarded to ${newDepartmentName}`,
+            `<p style="color:#475467; font-size:14px; line-height:1.5;"><strong>${ticket.ticketNumber}</strong> — ${ticket.subject}<br/>Forwarded by ${forwardedBy.firstName} ${forwardedBy.lastName}.${note ? `<br/><br/>"${note}"` : ""}</p>`,
             `/tickets/${ticket.id}`,
             "View ticket",
           ),
