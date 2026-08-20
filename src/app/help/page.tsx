@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, Clock, ShieldCheck } from "lucide-react";
 import { listPublicBusinessUnits } from "@/lib/services/public-support.service";
 import { isAiAssistantEnabledPublic } from "@/lib/services/ai.service";
 import { getSettingValue } from "@/lib/services/settings.service";
@@ -49,12 +48,6 @@ export default async function HelpAndSupportPage() {
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <InfoCard icon={Mail} label="Email us" value={supportEmail} />
-          <InfoCard icon={Clock} label="Response times" value="Vary by priority — you'll see an estimate after submitting" />
-          <InfoCard icon={ShieldCheck} label="Your data" value="Only used to follow up on this request" />
-        </div>
-
         <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
           <Tabs defaultValue="submit">
             <TabsList>
@@ -80,17 +73,6 @@ export default async function HelpAndSupportPage() {
       </main>
 
       {aiEnabled && <HelpChatbot supportEmail={supportEmail} />}
-    </div>
-  );
-}
-
-function InfoCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        <Icon className="size-3.5" /> {label}
-      </div>
-      <p className="mt-1.5 text-sm">{value}</p>
     </div>
   );
 }
