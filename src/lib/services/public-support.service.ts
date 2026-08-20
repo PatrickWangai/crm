@@ -6,6 +6,7 @@ import { createNotification } from "@/lib/services/notification.service";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { classifyTicket } from "@/lib/ai/classify-ticket";
 import { isAiAssistantEnabledPublic } from "@/lib/services/ai.service";
+import { getSupportStage } from "@/lib/support-stage";
 import type { PublicSupportRequestInput, PublicTicketStatus } from "@/lib/validation/public-support";
 
 function cleanId(value?: string | null): string | null {
@@ -159,6 +160,7 @@ export async function trackPublicSupportRequest(ticketNumber: string, email: str
     where: { ticketNumber },
     include: {
       stakeholder: { select: { email: true } },
+      businessUnit: { select: { name: true } },
       comments: { where: { isInternal: false }, orderBy: { createdAt: "asc" }, select: { comment: true, createdAt: true } },
     },
   });
@@ -166,12 +168,49 @@ export async function trackPublicSupportRequest(ticketNumber: string, email: str
     return null;
   }
 
+  const { stage, label } = getSupportStage(ticket.status, ticket.businessUnit?.name);
   return {
     ticketNumber: ticket.ticketNumber,
     subject: ticket.subject,
     category: ticket.category,
     priority: ticket.priority,
     status: ticket.status,
+    stage,
+    stageLabel: label,
+    businessUnitName: ticket.businessUnit?.name ?? null,
+    createdAt: ticket.createdAt.toISOString(),
+    resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
+    publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),
+  };
+}
+
+/**
+ * Trusted server-to-server status lookup, no email verification — used only
+ * by the API-key-protected bridge status endpoint so the standalone
+ * customer app can pull live status for a ticket it already knows the
+ * number of (it created it). Not exported to any public/unauthenticated
+ * caller.
+ */
+export async function getTicketStatusForBridge(ticketNumber: string): Promise<PublicTicketStatus | null> {
+  const ticket = await prisma.ticket.findUnique({
+    where: { ticketNumber },
+    include: {
+      businessUnit: { select: { name: true } },
+      comments: { where: { isInternal: false }, orderBy: { createdAt: "asc" }, select: { comment: true, createdAt: true } },
+    },
+  });
+  if (!ticket) return null;
+
+  const { stage, label } = getSupportStage(ticket.status, ticket.businessUnit?.name);
+  return {
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    category: ticket.category,
+    priority: ticket.priority,
+    status: ticket.status,
+    stage,
+    stageLabel: label,
+    businessUnitName: ticket.businessUnit?.name ?? null,
     createdAt: ticket.createdAt.toISOString(),
     resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
     publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),

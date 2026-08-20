@@ -40,6 +40,9 @@ export interface PublicTicketStatus {
   category: string;
   priority: string;
   status: string;
+  stage: 1 | 2 | 3;
+  stageLabel: string;
+  businessUnitName: string | null;
   createdAt: string;
   resolvedAt: string | null;
   publicComments: { comment: string; createdAt: string }[];
