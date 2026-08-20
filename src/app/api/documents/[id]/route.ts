@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getDocumentForDownload } from "@/lib/services/document.service";
-import { readFile } from "@/lib/storage/local";
+import { readFile } from "@/lib/storage";
 import { toErrorResponse } from "@/lib/api/errors";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

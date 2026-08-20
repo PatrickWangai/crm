@@ -4,7 +4,7 @@ import type { DocumentRelatedType } from "@prisma/client";
 import { requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import type { CurrentUser } from "@/lib/auth/session";
 import { recordAudit } from "@/lib/audit/log";
-import { deleteFile, saveFile } from "@/lib/storage/local";
+import { deleteFile, saveFile } from "@/lib/storage";
 
 export const DOCUMENT_ACCESS_LEVELS = ["internal", "restricted", "public"] as const;
 export type DocumentAccessLevel = (typeof DOCUMENT_ACCESS_LEVELS)[number];

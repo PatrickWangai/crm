@@ -26,3 +26,15 @@ services:
       # server-to-server bridge — must match PUBLIC_API_KEY there exactly.
       - key: PUBLIC_API_KEY
         value: 7ff32f1144d2c129a717f4c33919b46dded463dd5a4e17ed12bc8402683f80f9
+      # Cloudflare R2 (S3-compatible) document storage. Render's web service
+      # filesystem is ephemeral — without these four set, uploaded documents
+      # are written to local disk and silently lost on every redeploy. Paste
+      # values from the R2 bucket + API token once created (see README).
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
