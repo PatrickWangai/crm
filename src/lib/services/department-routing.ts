@@ -35,6 +35,15 @@ const CATEGORY_DEPARTMENTS: Record<TicketCategory, { code: string; name: string 
 const CARE_DEPARTMENT_CODE = "CARE";
 
 /**
+ * Every department code a ticket can legitimately land in — the same set
+ * CATEGORY_DEPARTMENTS routes into. Used to keep department pickers on
+ * ticket forms (manual edit, forward-to-department) from offering internal
+ * oversight departments (Board/Executive/Internal Audit/SACCO Credit
+ * Committee) that have no staff able to act on a ticket once it's there.
+ */
+export const CUSTOMER_FACING_DEPARTMENT_CODES: readonly string[] = Array.from(new Set(Object.values(CATEGORY_DEPARTMENTS).map((d) => d.code)));
+
+/**
  * Purely advisory — never changes which department a ticket actually lands
  * in. Flags when the free-text wording suggests a different department than
  * the category implies (e.g. "General Inquiry" that mentions "leak"), so

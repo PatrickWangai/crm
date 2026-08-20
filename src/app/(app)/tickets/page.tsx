@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAnyPermissionOrRedirect, hasPermission } from "@/lib/rbac/guard";
 import { listTickets, listTicketsForBoard } from "@/lib/services/ticket.service";
-import { listBusinessUnitOptions, listDepartmentOptions, listStakeholderOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { listBusinessUnitOptions, listTicketDepartmentOptions, listStakeholderOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,7 +36,7 @@ export default async function TicketsPage({
   const [stakeholders, businessUnits, departments, staff] = await Promise.all([
     listStakeholderOptions(),
     listBusinessUnitOptions(),
-    listDepartmentOptions(),
+    listTicketDepartmentOptions(),
     listUserOptions(),
   ]);
   const canCreate = hasPermission(user, "tickets.create");

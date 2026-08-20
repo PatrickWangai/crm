@@ -5,6 +5,7 @@ import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
 import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded } from "@/lib/notifications/ticket-events";
+import { CUSTOMER_FACING_DEPARTMENT_CODES } from "@/lib/services/department-routing";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
 import { filterVisibleDocuments } from "@/lib/services/document.service";
@@ -288,7 +289,11 @@ export async function acceptTicket(id: string, assignedToId: string, dueAt: Date
 export async function forwardTicketToDepartment(id: string, departmentId: string, note: string | null) {
   const actor = await requireAnyPermission(["tickets.assign"]);
   const before = await prisma.ticket.findUniqueOrThrow({ where: { id } });
-  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId }, select: { id: true, name: true } });
+  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId }, select: { id: true, name: true, code: true } });
+
+  if (!CUSTOMER_FACING_DEPARTMENT_CODES.includes(department.code)) {
+    throw new Error(`${department.name} doesn't handle customer tickets — pick a department that does.`);
+  }
 
   const reopen = before.status !== "COMPLETED" && before.status !== "CLOSED";
 

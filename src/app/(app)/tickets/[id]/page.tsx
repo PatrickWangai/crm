@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getTicketDetail } from "@/lib/services/ticket.service";
 import { checkRouting } from "@/lib/services/department-routing";
-import { listBusinessUnitOptions, listDepartmentOptions, listStakeholderOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { listBusinessUnitOptions, listDepartmentOptions, listTicketDepartmentOptions, listStakeholderOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { isAiAssistantEnabled, suggestTicketReply } from "@/lib/services/ai.service";
 import {
   logTicketCommunicationAction,
@@ -63,14 +63,16 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   let stakeholders: Awaited<ReturnType<typeof listStakeholderOptions>>;
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
+  let ticketDepartments: Awaited<ReturnType<typeof listTicketDepartmentOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
   let aiEnabled: boolean;
   try {
-    [ticket, stakeholders, businessUnits, departments, staff, aiEnabled] = await Promise.all([
+    [ticket, stakeholders, businessUnits, departments, ticketDepartments, staff, aiEnabled] = await Promise.all([
       getTicketDetail(id),
       listStakeholderOptions(),
       listBusinessUnitOptions(),
       listDepartmentOptions(),
+      listTicketDepartmentOptions(),
       listUserOptions(),
       isAiAssistantEnabled(),
     ]);
@@ -132,7 +134,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <TicketWorkflowActions ticketId={ticket.id} status={ticket.status} currentUserId={user.id} dueAt={ticket.dueAt} canAssign={canAssign} canUpdate={canUpdate} />
-            {canAssign && <ForwardDepartmentDialog ticketId={ticket.id} currentDepartmentId={ticket.departmentId} departments={departments} />}
+            {canAssign && <ForwardDepartmentDialog ticketId={ticket.id} currentDepartmentId={ticket.departmentId} departments={ticketDepartments} />}
             {canUpdate && <TicketStatusControl ticketId={ticket.id} currentStatus={ticket.status} />}
             {canUpdate && (
               <TicketFormSheet
@@ -140,7 +142,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                 ticketId={ticket.id}
                 stakeholders={stakeholders}
                 businessUnits={businessUnits}
-                departments={departments}
+                departments={ticketDepartments}
                 staff={staff}
                 defaultValues={{
                   stakeholderId: ticket.stakeholderId,
