@@ -4,6 +4,7 @@ import type { TicketPriority, TicketStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
+import { notifyTicketAccepted, notifyTicketCompleted } from "@/lib/notifications/ticket-events";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
 import { filterVisibleDocuments } from "@/lib/services/document.service";
@@ -218,6 +219,10 @@ export async function updateTicketStatus(id: string, status: TicketStatus, note?
     },
   });
 
+  if (status === "COMPLETED" && before.status !== "COMPLETED") {
+    await notifyTicketCompleted(ticket, actor);
+  }
+
   if (note) {
     await prisma.ticketComment.create({
       data: { ticketId: id, userId: actor.id, comment: `Status changed to ${status.replace(/_/g, " ")}: ${note}`, isInternal: true },
@@ -265,6 +270,8 @@ export async function acceptTicket(id: string, assignedToId: string, dueAt: Date
     previousValue: { assignedToId: before.assignedToId, dueAt: before.dueAt },
     newValue: { assignedToId, dueAt: ticket.dueAt },
   });
+
+  await notifyTicketAccepted(ticket, actor);
 
   return ticket;
 }

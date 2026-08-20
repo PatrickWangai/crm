@@ -2,44 +2,15 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { TicketPriority } from "@prisma/client";
 import { recordAudit } from "@/lib/audit/log";
-import { createNotification } from "@/lib/services/notification.service";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { classifyTicket } from "@/lib/ai/classify-ticket";
 import { isAiAssistantEnabledPublic } from "@/lib/services/ai.service";
 import { getSupportStage } from "@/lib/support-stage";
+import { notifyNewRequest } from "@/lib/notifications/ticket-events";
 import type { PublicSupportRequestInput, PublicTicketStatus } from "@/lib/validation/public-support";
 
 function cleanId(value?: string | null): string | null {
   return value && value.length > 0 ? value : null;
-}
-
-/**
- * Which department(s) beyond the default tickets.assign holders (CEO,
- * Customer Care) should be notified of a new public complaint — matched by
- * exact category OR by wording, since a customer might tag something
- * "Complaint"/"General Inquiry" that's actually about money or a leaking
- * pipe rather than picking the "obvious" category. Add a row here to route
- * a new department; each permissionCode should be one that department
- * actually holds (checked against ROLE_PERMISSIONS).
- */
-const DEPARTMENT_ROUTES: { permissionCode: string; categories: string[]; keywords: string[] }[] = [
-  {
-    permissionCode: "finance.view",
-    categories: ["Billing Inquiry"],
-    keywords: ["invoice", "bill", "billing", "payment", "charge", "refund", "receipt", "overcharged", "rent", "arrears", "disbursement", "statement"],
-  },
-  {
-    permissionCode: "maintenance.manage",
-    categories: ["Maintenance Request"],
-    keywords: ["leak", "broken", "repair", "plumbing", "electrical", "faulty", "not working", "burst", "flooding"],
-  },
-];
-
-function matchedDepartmentPermissions(category: string, subject: string, description: string): string[] {
-  const text = `${subject} ${description}`.toLowerCase();
-  return DEPARTMENT_ROUTES.filter((route) => route.categories.includes(category) || route.keywords.some((k) => text.includes(k))).map(
-    (route) => route.permissionCode,
-  );
 }
 
 async function nextTicketNumber(): Promise<string> {
@@ -126,24 +97,7 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
     newValue: { subject: ticket.subject, category: ticket.category, priority: ticket.priority },
   });
 
-  const notifyPermissionCodes = ["tickets.assign", ...matchedDepartmentPermissions(ticket.category, ticket.subject, ticket.description)];
-  const recipients = await prisma.user.findMany({
-    where: {
-      status: "ACTIVE",
-      role: { rolePermissions: { some: { permission: { code: { in: notifyPermissionCodes } } } } },
-    },
-    select: { id: true },
-    distinct: ["id"],
-  });
-  for (const recipient of recipients) {
-    await createNotification({
-      userId: recipient.id,
-      type: "SYSTEM",
-      title: "New request via Help & Support",
-      message: `${ticket.ticketNumber}: ${ticket.subject}`,
-      relatedUrl: `/tickets/${ticket.id}`,
-    });
-  }
+  await notifyNewRequest(ticket, "Help & Support");
 
   return { ticketNumber: ticket.ticketNumber, expectedResponseBy: ticket.dueAt };
 }

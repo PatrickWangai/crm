@@ -38,3 +38,12 @@ services:
         sync: false
       - key: R2_BUCKET_NAME
         sync: false
+      # Resend — sends department-watcher emails (new request / accepted /
+      # completed). Without it, those events still fire as in-app
+      # notifications only. Get a key at resend.com > API Keys.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: APP_URL
+        value: https://masterways-crm.onrender.com
