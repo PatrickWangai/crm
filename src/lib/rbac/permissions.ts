@@ -318,6 +318,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "stakeholders.update",
     "stakeholders.create",
     "tickets.view_all",
+    // The property department's actual head — like customer-care/finance/hr,
+    // needs assign alongside update to receive, hand off, and reassign the
+    // Maintenance Request tickets routed here (see department-routing.ts).
+    "tickets.assign",
     "tickets.update",
     "communications.view_own",
     "communications.create",
