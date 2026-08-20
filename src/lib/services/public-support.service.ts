@@ -65,6 +65,7 @@ function buildPublicTicketStatus(ticket: {
 }
 
 export interface PublicSupportSubmissionResult {
+  ticketId: string;
   ticketNumber: string;
   expectedResponseBy: Date | null;
   contactEmail: string | null;
@@ -154,6 +155,7 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
   });
 
   return {
+    ticketId: ticket.id,
     ticketNumber: ticket.ticketNumber,
     expectedResponseBy: ticket.dueAt,
     contactEmail: email,

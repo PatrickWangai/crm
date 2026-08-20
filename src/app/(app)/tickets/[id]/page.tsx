@@ -8,6 +8,7 @@ import { listBusinessUnitOptions, listDepartmentOptions, listStakeholderOptions,
 import { isAiAssistantEnabled, suggestTicketReply } from "@/lib/services/ai.service";
 import {
   logTicketCommunicationAction,
+  sendTicketEmailAction,
   uploadTicketDocumentAction,
   deleteTicketDocumentAction,
   createTicketTaskAction,
@@ -27,11 +28,14 @@ import { TicketWorkflowActions } from "@/components/tickets/ticket-workflow-acti
 import { RoutingCheckNote } from "@/components/tickets/routing-check";
 import { AssignTicketSelect } from "@/components/tickets/assign-ticket-select";
 import { TicketCommentSection } from "@/components/tickets/ticket-comment-section";
+import { SendCustomerEmailForm } from "@/components/tickets/send-customer-email-form";
+import { QuickContactLinks } from "@/components/tickets/quick-contact-links";
+import { CustomerTrackerPreview } from "@/components/tickets/customer-tracker-preview";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
 import { DocumentBadges } from "@/components/documents/document-badges";
-import { Mail, Phone, Building2, FileText, MessageSquare, MessageSquareText, Download, User as UserIcon, Lock } from "lucide-react";
+import { Mail, Phone, Building2, FileText, MessageSquare, MessageSquareText, Download, User as UserIcon, Lock, Bot } from "lucide-react";
 
 const CHANNEL_LABELS: Record<string, string> = {
   CALL: "Call",
@@ -41,6 +45,7 @@ const CHANNEL_LABELS: Record<string, string> = {
   MEETING: "Meeting",
   NOTE: "Note",
   WALK_IN: "Walk-in",
+  CHATBOT: "Chatbot",
 };
 
 function formatBytes(bytes: number): string {
@@ -92,6 +97,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const canUpload = hasPermission(user, "documents.upload");
   const canDeleteDocs = hasPermission(user, "documents.delete");
   const canCreateTask = hasPermission(user, "tasks.create");
+
+  const emailsSent = ticket.communications.filter((c) => c.channel === "EMAIL" && c.direction === "OUTBOUND");
+  const emailsReceived = ticket.communications.filter((c) => c.channel === "EMAIL" && c.direction === "INBOUND");
+  const chatbotTurns = ticket.communications.filter((c) => c.channel === "CHATBOT");
+  const otherCommunications = ticket.communications.filter((c) => c.channel !== "EMAIL" && c.channel !== "CHATBOT");
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -149,10 +159,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       <Tabs defaultValue="overview">
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="comments">Comments</TabsTrigger>
-          <TabsTrigger value="communications">Communications</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="contact">Contact Customer</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
@@ -195,17 +205,37 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </Card>
         </TabsContent>
 
-        {/* Comments */}
-        <TabsContent value="comments">
+        {/* Contact Customer */}
+        <TabsContent value="contact" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Comments</CardTitle>
-              <CardDescription>Internal notes and status updates on this ticket.</CardDescription>
+              <CardTitle>Where things stand</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CustomerTrackerPreview status={ticket.status} departmentOrBusinessUnitName={ticket.businessUnit?.name ?? null} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Reach out</CardTitle>
+              <CardDescription>Using the contact details this customer submitted themselves.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <QuickContactLinks phone={ticket.stakeholder.phone} />
+              {canLogCommunication && <SendCustomerEmailForm action={sendTicketEmailAction.bind(null, ticket.id)} customerEmail={ticket.stakeholder.email} />}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Notes &amp; updates</CardTitle>
+              <CardDescription>Internal notes stay private; uncheck &quot;Internal&quot; to post something the customer sees on their own tracker.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {canUpdate && <TicketCommentSection ticketId={ticket.id} suggestedReply={suggestedReply} />}
               {ticket.comments.length === 0 ? (
-                <EmptyState icon={MessageSquare} title="No comments yet" className="border-none py-8" />
+                <EmptyState icon={MessageSquare} title="No notes yet" className="border-none py-8" />
               ) : (
                 <ul className="space-y-3">
                   {ticket.comments.map((c) => (
@@ -213,9 +243,13 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium">{c.user ? `${c.user.firstName} ${c.user.lastName}` : "System"}</p>
                         <div className="flex items-center gap-2">
-                          {c.isInternal && (
+                          {c.isInternal ? (
                             <Badge variant="outline" className="text-[10px]">
                               <Lock className="size-3" /> Internal
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Customer sees this
                             </Badge>
                           )}
                           <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}</span>
@@ -230,45 +264,83 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </Card>
         </TabsContent>
 
-        {/* Communications */}
-        <TabsContent value="communications">
+        {/* History */}
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <InfoRow icon={UserIcon} label="Name" value={`${ticket.stakeholder.firstName} ${ticket.stakeholder.lastName}`} />
+              <InfoRow icon={Mail} label="Email" value={ticket.stakeholder.email ?? "—"} />
+              <InfoRow icon={Phone} label="Phone" value={ticket.stakeholder.phone ?? "—"} />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle>Communication history</CardTitle>
-                <CardDescription>Calls, emails, SMS, WhatsApp, meetings and notes tied to this ticket.</CardDescription>
+                <CardTitle>Emails sent</CardTitle>
+                <CardDescription>Outbound messages sent to this customer from this ticket.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CommunicationList items={emailsSent} emptyText="No emails sent yet." />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Emails received</CardTitle>
+              <CardDescription>Inbound emails logged against this ticket.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CommunicationList items={emailsReceived} emptyText="No inbound emails logged yet." />
+            </CardContent>
+          </Card>
+
+          {chatbotTurns.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="size-4" /> Chatbot conversation
+                </CardTitle>
+                <CardDescription>The exchange that led to this ticket, if it started with the virtual assistant.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CommunicationList items={chatbotTurns} emptyText="" />
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle>Calls &amp; other communications</CardTitle>
+                <CardDescription>Everything logged that isn&apos;t email — calls, SMS, WhatsApp, meetings, walk-ins.</CardDescription>
               </div>
               {canLogCommunication && (
                 <LogCommunicationForm
                   action={logTicketCommunicationAction.bind(null, ticket.id)}
-                  description="Record a call, email, meeting or other touchpoint for this ticket."
+                  description="Record a call, SMS, meeting or other touchpoint for this ticket."
                 />
               )}
             </CardHeader>
             <CardContent>
-              {ticket.communications.length === 0 ? (
-                <EmptyState icon={MessageSquare} title="No communications logged yet" className="border-none py-8" />
-              ) : (
-                <ul className="space-y-4">
-                  {ticket.communications.map((comm) => (
-                    <li key={comm.id} className="flex items-start gap-3 rounded-md border border-border p-3">
-                      <Badge variant={comm.direction === "INBOUND" ? "info" : "secondary"} className="mt-0.5 shrink-0">
-                        {CHANNEL_LABELS[comm.channel]}
-                      </Badge>
-                      <div className="min-w-0 flex-1">
-                        {comm.subject && <p className="text-sm font-medium">{comm.subject}</p>}
-                        <p className="text-sm text-muted-foreground">{comm.content}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {comm.direction === "INBOUND" ? "Received" : "Sent"} by {comm.staff ? `${comm.staff.firstName} ${comm.staff.lastName}` : "—"}{" "}
-                          &middot; {formatDistanceToNow(new Date(comm.occurredAt), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <CommunicationList items={otherCommunications} emptyText="No other communications logged yet." />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tasks */}
+        <TabsContent value="tasks">
+          <RelatedTaskList
+            tasks={ticket.tasks}
+            canCreate={canCreateTask}
+            staff={staff}
+            departments={departments}
+            createAction={createTicketTaskAction.bind(null, ticket.id)}
+          />
         </TabsContent>
 
         {/* Documents */}
@@ -315,17 +387,6 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Tasks */}
-        <TabsContent value="tasks">
-          <RelatedTaskList
-            tasks={ticket.tasks}
-            canCreate={canCreateTask}
-            staff={staff}
-            departments={departments}
-            createAction={createTicketTaskAction.bind(null, ticket.id)}
-          />
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -339,5 +400,41 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ cla
       </span>
       <span className="truncate font-medium">{value}</span>
     </div>
+  );
+}
+
+interface CommunicationItem {
+  id: string;
+  channel: string;
+  direction: string;
+  subject: string | null;
+  content: string;
+  occurredAt: Date;
+  staff: { firstName: string; lastName: string } | null;
+}
+
+function CommunicationList({ items, emptyText }: { items: CommunicationItem[]; emptyText: string }) {
+  if (items.length === 0) {
+    return emptyText ? <p className="py-4 text-center text-sm text-muted-foreground">{emptyText}</p> : null;
+  }
+  return (
+    <ul className="space-y-4">
+      {items.map((comm) => (
+        <li key={comm.id} className="flex items-start gap-3 rounded-md border border-border p-3">
+          <Badge variant={comm.direction === "INBOUND" ? "info" : "secondary"} className="mt-0.5 shrink-0">
+            {CHANNEL_LABELS[comm.channel] ?? comm.channel}
+          </Badge>
+          <div className="min-w-0 flex-1">
+            {comm.subject && <p className="text-sm font-medium">{comm.subject}</p>}
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground">{comm.content}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {comm.direction === "INBOUND" ? "Received" : "Sent"}
+              {comm.staff && ` by ${comm.staff.firstName} ${comm.staff.lastName}`} &middot;{" "}
+              {formatDistanceToNow(new Date(comm.occurredAt), { addSuffix: true })}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

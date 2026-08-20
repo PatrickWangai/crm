@@ -132,6 +132,7 @@ export function HelpChatbot({ supportEmail }: { supportEmail: string }) {
           phone: draft.current.phone,
           category: draft.current.category ?? "General Inquiry",
           description: draft.current.description ?? text,
+          transcript: messages.map((m) => ({ from: m.from, text: m.text })),
         });
         setBusy(false);
         if (result.ok) {

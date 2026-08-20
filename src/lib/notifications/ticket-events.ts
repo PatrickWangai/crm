@@ -2,8 +2,7 @@ import "server-only";
 import { createNotification } from "@/lib/services/notification.service";
 import { getTicketWatchers } from "@/lib/services/department-routing";
 import { sendEmail } from "@/lib/email/resend";
-
-const APP_URL = process.env.APP_URL || "https://masterways-crm.onrender.com";
+import { emailShell } from "@/lib/email/templates";
 
 interface WatchedTicket {
   id: string;
@@ -11,19 +10,6 @@ interface WatchedTicket {
   subject: string;
   category: string;
   description: string;
-}
-
-function emailShell(title: string, bodyHtml: string, ticketId: string): string {
-  return `
-    <div style="font-family: -apple-system, Segoe UI, sans-serif; max-width: 480px; margin: 0 auto;">
-      <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #667085; margin: 0 0 8px;">Masterways CRM</p>
-      <h2 style="font-size: 18px; margin: 0 0 12px; color: #101828;">${title}</h2>
-      ${bodyHtml}
-      <p style="margin-top: 20px;">
-        <a href="${APP_URL}/tickets/${ticketId}" style="display: inline-block; background: #1d4e89; color: #fff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px;">View ticket</a>
-      </p>
-    </div>
-  `;
 }
 
 /**
@@ -49,7 +35,8 @@ export async function notifyNewRequest(ticket: WatchedTicket, sourceLabel: strin
           html: emailShell(
             "A new request just came in",
             `<p style="color:#475467; font-size:14px; line-height:1.5;"><strong>${ticket.ticketNumber}</strong> — ${ticket.subject}<br/>Category: ${ticket.category}<br/>Submitted via ${sourceLabel}.</p>`,
-            ticket.id,
+            `/tickets/${ticket.id}`,
+            "View ticket",
           ),
         });
       }
@@ -76,7 +63,8 @@ export async function notifyTicketAccepted(ticket: WatchedTicket, acceptedBy: { 
           html: emailShell(
             "A request in your department was picked up",
             `<p style="color:#475467; font-size:14px; line-height:1.5;"><strong>${ticket.ticketNumber}</strong> — ${ticket.subject}<br/>Accepted by ${acceptedBy.firstName} ${acceptedBy.lastName}.</p>`,
-            ticket.id,
+            `/tickets/${ticket.id}`,
+            "View ticket",
           ),
         });
       }
@@ -103,7 +91,8 @@ export async function notifyTicketCompleted(ticket: WatchedTicket, completedBy: 
           html: emailShell(
             "A request in your department is done",
             `<p style="color:#475467; font-size:14px; line-height:1.5;"><strong>${ticket.ticketNumber}</strong> — ${ticket.subject}<br/>Marked fulfilled by ${completedBy.firstName} ${completedBy.lastName}.</p>`,
-            ticket.id,
+            `/tickets/${ticket.id}`,
+            "View ticket",
           ),
         });
       }

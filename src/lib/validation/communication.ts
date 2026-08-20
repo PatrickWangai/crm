@@ -20,3 +20,16 @@ export interface DocumentFormState {
   error?: string;
   success?: boolean;
 }
+
+export const sendCustomerEmailSchema = z.object({
+  subject: z.string().trim().min(1, "Subject is required").max(150),
+  body: z.string().trim().min(1, "Message is required").max(5000),
+});
+
+export type SendCustomerEmailInput = z.infer<typeof sendCustomerEmailSchema>;
+
+export interface SendCustomerEmailFormState {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+}

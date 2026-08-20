@@ -3,10 +3,16 @@
 import { revalidatePath } from "next/cache";
 import type { TicketStatus } from "@prisma/client";
 import { ticketSchema, ticketStatusChangeSchema, ticketCommentSchema, type TicketFormState, type TicketCommentFormState } from "@/lib/validation/ticket";
-import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
+import {
+  communicationSchema,
+  sendCustomerEmailSchema,
+  type CommunicationFormState,
+  type DocumentFormState,
+  type SendCustomerEmailFormState,
+} from "@/lib/validation/communication";
 import { taskSchema, type TaskFormState } from "@/lib/validation/task";
 import { acceptTicket, assignTicket, addTicketComment, createTicket, deleteTicket, updateTicket, updateTicketStatus, checkSlaRisk } from "@/lib/services/ticket.service";
-import { logCommunication } from "@/lib/services/communication.service";
+import { logCommunication, sendTicketEmailToCustomer } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import { createTask } from "@/lib/services/task.service";
 
@@ -131,6 +137,25 @@ export async function logTicketCommunicationAction(
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   try {
     await logCommunication({ ticketId }, parsed.data);
+    revalidatePath(`/tickets/${ticketId}`);
+    return { success: true };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function sendTicketEmailAction(
+  ticketId: string,
+  _prev: SendCustomerEmailFormState,
+  formData: FormData,
+): Promise<SendCustomerEmailFormState> {
+  const parsed = sendCustomerEmailSchema.safeParse({
+    subject: formData.get("subject"),
+    body: formData.get("body"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  try {
+    await sendTicketEmailToCustomer(ticketId, parsed.data.subject, parsed.data.body);
     revalidatePath(`/tickets/${ticketId}`);
     return { success: true };
   } catch (err) {

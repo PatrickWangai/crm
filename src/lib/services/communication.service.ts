@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { CommunicationChannel, CommunicationDirection } from "@prisma/client";
 import { requireAnyPermission, hasPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
+import { sendEmail } from "@/lib/email/resend";
+import { customerEmailShell } from "@/lib/email/templates";
 import type { CommunicationInput } from "@/lib/validation/communication";
 
 export type CommunicationTarget = { stakeholderId: string } | { leadId: string } | { ticketId: string };
@@ -36,6 +38,80 @@ export async function logCommunication(target: CommunicationTarget, input: Commu
   });
 
   return record;
+}
+
+/**
+ * Actually sends an email to the customer (not just logging that contact
+ * happened elsewhere) — uses the stakeholder's own submitted email address,
+ * and records the send as an outbound Communication so it shows up in the
+ * ticket's history the same as any other logged contact.
+ */
+export async function sendTicketEmailToCustomer(ticketId: string, subject: string, body: string) {
+  const actor = await requireAnyPermission(["communications.create"]);
+
+  const ticket = await prisma.ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    select: { ticketNumber: true, stakeholder: { select: { email: true } } },
+  });
+  if (!ticket.stakeholder.email) {
+    throw new Error("This customer has no email address on file — use the phone number instead.");
+  }
+
+  await sendEmail({
+    to: ticket.stakeholder.email,
+    subject,
+    html: customerEmailShell(subject, `<p style="color:#475467; font-size:14px; line-height:1.6; white-space:pre-wrap;">${body}</p>`, ticket.ticketNumber),
+  });
+
+  const record = await prisma.communication.create({
+    data: {
+      relatedTicketId: ticketId,
+      channel: "EMAIL",
+      direction: "OUTBOUND",
+      subject,
+      content: body,
+      staffId: actor.id,
+      occurredAt: new Date(),
+    },
+  });
+
+  await recordAudit({
+    userId: actor.id,
+    action: "communication.email_sent",
+    entityType: "Ticket",
+    entityId: ticketId,
+    newValue: { subject },
+  });
+
+  return record;
+}
+
+export interface ChatTranscriptTurn {
+  from: "bot" | "user";
+  text: string;
+}
+
+/**
+ * Records the chatbot conversation that led to a ticket, so staff can see
+ * the actual back-and-forth rather than just the final description text.
+ * Called from the public, unauthenticated submission flow (the chatbot has
+ * no logged-in user) — no permission check, mirroring submitPublicSupportRequest.
+ */
+export async function logChatbotTranscript(ticketId: string, transcript: ChatTranscriptTurn[]) {
+  if (transcript.length === 0) return null;
+
+  const content = transcript.map((t) => `${t.from === "bot" ? "Assistant" : "Customer"}: ${t.text}`).join("\n");
+
+  return prisma.communication.create({
+    data: {
+      relatedTicketId: ticketId,
+      channel: "CHATBOT",
+      direction: "INBOUND",
+      subject: "Chatbot conversation",
+      content,
+      occurredAt: new Date(),
+    },
+  });
 }
 
 export interface ListCommunicationsParams {

@@ -4,6 +4,7 @@ import type { TaskPriority, TaskStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
+import { notifyDepartmentTask } from "@/lib/notifications/task-events";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
 import type { TaskInput } from "@/lib/validation/task";
 
@@ -134,6 +135,11 @@ export async function createTask(target: TaskTarget, input: TaskInput) {
       message: task.title,
       relatedUrl: `/tasks/${task.id}`,
     });
+  } else if (task.departmentId) {
+    // Routed to a department, not a specific person — notify everyone there so
+    // whoever's free can self-assign, same pattern as unassigned tickets.
+    const department = await prisma.department.findUnique({ where: { id: task.departmentId }, select: { name: true } });
+    if (department) await notifyDepartmentTask(task, task.departmentId, department.name);
   }
 
   return task;
@@ -141,6 +147,8 @@ export async function createTask(target: TaskTarget, input: TaskInput) {
 
 export async function updateTask(id: string, input: TaskInput) {
   const actor = await requireAnyPermission(["tasks.update"]);
+  const before = await prisma.task.findUniqueOrThrow({ where: { id } });
+  const newDepartmentId = cleanId(input.departmentId);
 
   const task = await prisma.task.update({
     where: { id },
@@ -149,11 +157,17 @@ export async function updateTask(id: string, input: TaskInput) {
       description: input.description || undefined,
       priority: input.priority,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
-      departmentId: cleanId(input.departmentId),
+      departmentId: newDepartmentId,
     },
   });
 
   await recordAudit({ userId: actor.id, action: "task.updated", entityType: "Task", entityId: id, newValue: { title: task.title } });
+
+  // Newly routed to a different department, with no specific assignee — let that department know, same as on creation.
+  if (newDepartmentId && newDepartmentId !== before.departmentId && !task.assigneeId) {
+    const department = await prisma.department.findUnique({ where: { id: newDepartmentId }, select: { name: true } });
+    if (department) await notifyDepartmentTask(task, newDepartmentId, department.name);
+  }
 
   return task;
 }

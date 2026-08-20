@@ -7,6 +7,7 @@ import {
   type TrackRequestFormState,
 } from "@/lib/validation/public-support";
 import { submitPublicSupportRequest, trackPublicSupportRequest } from "@/lib/services/public-support.service";
+import { logChatbotTranscript } from "@/lib/services/communication.service";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
 function friendlyError(err: unknown): string {
@@ -77,6 +78,8 @@ export interface ChatTicketInput {
   phone?: string;
   category: string;
   description: string;
+  /** The full conversation turn-by-turn — logged as a Communication once the ticket exists, so staff see the actual exchange, not just the final description. */
+  transcript?: { from: "bot" | "user"; text: string }[];
 }
 
 export type ChatTicketResult = { ok: true; ticketNumber: string; expectedResponseBy?: string } | { ok: false; error: string };
@@ -109,6 +112,9 @@ export async function chatCreateTicketAction(input: ChatTicketInput): Promise<Ch
 
   try {
     const result = await submitPublicSupportRequest(parsed.data);
+    if (input.transcript && input.transcript.length > 0) {
+      await logChatbotTranscript(result.ticketId, input.transcript);
+    }
     return { ok: true, ticketNumber: result.ticketNumber, expectedResponseBy: result.expectedResponseBy ? result.expectedResponseBy.toISOString() : undefined };
   } catch (err) {
     return { ok: false, error: friendlyError(err) };

@@ -137,6 +137,7 @@ enum CommunicationChannel {
   MEETING
   NOTE
   WALK_IN
+  CHATBOT
 }
 
 enum CommunicationDirection {

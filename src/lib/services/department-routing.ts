@@ -120,3 +120,11 @@ export async function getTicketWatchers(category: string, subject: string, descr
     distinct: ["id"],
   });
 }
+
+/** Active staff who belong to a given department (by Department.id, not code) — used to notify a whole department when a task or ticket is routed there without a specific person picked yet. */
+export async function getDepartmentMembers(departmentId: string) {
+  return prisma.user.findMany({
+    where: { status: "ACTIVE", departmentId },
+    select: { id: true, email: true, firstName: true, lastName: true },
+  });
+}
