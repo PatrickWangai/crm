@@ -263,6 +263,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "documents.view_all",
     "tasks.view_own",
     "tasks.create",
+    // Had create but not update — could open a task and never mark it
+    // complete or comment on it. Every other department role with
+    // tasks.create also has tasks.update.
+    "tasks.update",
     "notifications.view_own",
     "tickets.view_own",
     "tickets.assign",
