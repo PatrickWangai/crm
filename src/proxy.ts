@@ -10,6 +10,16 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login", "/help", "/api/public", "/pri
  * Server Component, Server Action and Route Handler independently calls
  * getCurrentUser()/requirePermission() (Node runtime, DB-backed) before
  * touching data. See src/lib/rbac/guard.ts.
+ *
+ * Deliberately does NOT redirect away from /login when a session cookie is
+ * present: cookie *presence* isn't cookie *validity* (expired/revoked
+ * sessions still have a cookie sitting in the browser), and /login's own
+ * page component already does this check correctly with a real, DB-backed
+ * getCurrentUser() call. Redirecting here too — on presence alone — used to
+ * create an infinite loop for anyone with a stale cookie: /dashboard's
+ * layout would bounce them to /login (real check, correctly invalid), and
+ * this proxy would immediately bounce them back to /dashboard (naive
+ * check, sees the cookie and assumes valid), forever.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -20,10 +30,6 @@ export function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (hasSession && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
