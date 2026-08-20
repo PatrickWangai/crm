@@ -15,13 +15,25 @@ export const metadata = { title: "Help & Support — Masterways" };
 // the next deploy, even though admins can change all three at runtime.
 export const dynamic = "force-dynamic";
 
-export default async function HelpAndSupportPage() {
-  const [businessUnits, aiEnabled, companyName, supportEmail] = await Promise.all([
+export default async function HelpAndSupportPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [businessUnits, aiEnabled, companyName, supportEmail, sp] = await Promise.all([
     listPublicBusinessUnits(),
     isAiAssistantEnabledPublic(),
     getSettingValue("companyName"),
     getSettingValue("supportEmail"),
+    searchParams,
   ]);
+
+  // Lets the customer lifecycle emails (customer-events.ts) deep-link
+  // straight into "already looked up" — no need to re-type the reference
+  // number and email they were just sent.
+  const initialTab = sp.tab === "track" ? "track" : "submit";
+  const initialTicketNumber = typeof sp.ticketNumber === "string" ? sp.ticketNumber : undefined;
+  const initialEmail = typeof sp.email === "string" ? sp.email : undefined;
 
   return (
     <div className="min-h-screen bg-background">
@@ -49,7 +61,7 @@ export default async function HelpAndSupportPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
-          <Tabs defaultValue="submit">
+          <Tabs defaultValue={initialTab}>
             <TabsList>
               <TabsTrigger value="submit">Submit a request</TabsTrigger>
               <TabsTrigger value="track">Track a request</TabsTrigger>
@@ -58,7 +70,7 @@ export default async function HelpAndSupportPage() {
               <PublicSupportForm businessUnits={businessUnits} aiEnabled={aiEnabled} />
             </TabsContent>
             <TabsContent value="track" className="pt-4">
-              <TrackRequestForm />
+              <TrackRequestForm defaultTicketNumber={initialTicketNumber} defaultEmail={initialEmail} />
             </TabsContent>
           </Tabs>
         </div>

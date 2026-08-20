@@ -68,7 +68,7 @@ export async function trackPublicSupportRequestAction(_prev: TrackRequestFormSta
   const result = await trackPublicSupportRequest(parsed.data.ticketNumber, parsed.data.email);
   if (!result) return { error: "We couldn't find a request matching that reference number and email." };
 
-  return { result };
+  return { result, email: parsed.data.email };
 }
 
 export interface ChatTicketInput {

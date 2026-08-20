@@ -44,6 +44,7 @@ export interface PublicTicketStatus {
 export interface TrackRequestFormState {
   error?: string;
   result?: PublicTicketStatus;
+  email?: string;
 }
 
 export interface PublicSupportFormState {

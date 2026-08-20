@@ -1,37 +1,110 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { SupportStageStepper } from "@/components/support/support-stage-stepper";
 import { ResponseCountdown } from "@/components/support/response-countdown";
 import type { PublicTicketStatus } from "@/lib/validation/public-support";
 
-/** The live status view — stepper, countdown, updates — shared between a manual lookup (Track a request) and the automatic view shown right after submitting, so both stay in sync as one component. */
-export function TrackingResultCard({ result }: { result: PublicTicketStatus }) {
+const POLL_MS = 45_000;
+
+type RefreshAction = (ticketNumber: string, email: string) => Promise<{ ok: boolean; result?: PublicTicketStatus }>;
+
+/**
+ * The live status view — stepper, countdown, updates — shared between a
+ * manual lookup (Track a request) and the automatic view shown right after
+ * submitting, so both stay in sync as one component. When `refreshAction`
+ * and `email` are both given, polls in the background every 45s (the
+ * "help-track" rate limit is 20/10min, so this leaves headroom for a manual
+ * lookup too) and stops once the request reaches its final stage — nothing
+ * left to refresh once it's Done. Phone-only submissions have no email to
+ * poll with, so they just show whatever snapshot was last fetched.
+ */
+export function TrackingResultCard({
+  result,
+  email,
+  refreshAction,
+  onRefresh,
+}: {
+  result: PublicTicketStatus;
+  email?: string | null;
+  refreshAction?: RefreshAction;
+  onRefresh?: (result: PublicTicketStatus) => void;
+}) {
+  const [live, setLive] = useState(result);
+  const firedInitialRef = useRef(false);
+
+  // A fresh `result` prop (e.g. the parent re-ran a manual lookup) always
+  // wins over whatever polling last fetched — set during render rather than
+  // in an effect, per React's guidance for adjusting state from props.
+  const [prevResult, setPrevResult] = useState(result);
+  if (result !== prevResult) {
+    setPrevResult(result);
+    setLive(result);
+  }
+
+  useEffect(() => {
+    if (!refreshAction || !email || live.stage === 3) return;
+    let cancelled = false;
+    const ticketNumber = result.ticketNumber;
+    async function tick() {
+      const res = await refreshAction!(ticketNumber, email!);
+      if (cancelled || !res.ok || !res.result) return;
+      setLive(res.result);
+      onRefresh?.(res.result);
+    }
+    if (!firedInitialRef.current) {
+      firedInitialRef.current = true;
+      void tick();
+    }
+    const id = setInterval(tick, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onRefresh intentionally excluded: callers should useCallback it, but if they don't, we'd rather keep polling on a stable cadence than restart the interval on every parent render
+  }, [refreshAction, email, live.stage, result.ticketNumber]);
+
+  const isLive = !!refreshAction && !!email && live.stage !== 3;
+
   return (
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">{result.subject}</p>
+          <p className="text-sm font-medium">{live.subject}</p>
           <p className="text-xs text-muted-foreground">
-            {result.ticketNumber} &middot; {result.category}
+            {live.ticketNumber} &middot; {live.category}
           </p>
         </div>
-        <StatusBadge status={result.priority} />
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-success">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+              </span>
+              Live
+            </span>
+          )}
+          <StatusBadge status={live.priority} />
+        </div>
       </div>
 
       <div className="mt-4 mb-1">
-        <SupportStageStepper stage={result.stage} activeLabel={result.stageLabel} />
+        <SupportStageStepper stage={live.stage} activeLabel={live.stageLabel} />
       </div>
-      <ResponseCountdown expectedResponseBy={result.expectedResponseBy} stage={result.stage} />
+      <ResponseCountdown expectedResponseBy={live.expectedResponseBy} stage={live.stage} />
 
       <p className="mt-3 text-xs text-muted-foreground">
-        Submitted {new Date(result.createdAt).toLocaleString()}
-        {result.resolvedAt && ` · Resolved ${new Date(result.resolvedAt).toLocaleString()}`}
+        Submitted {new Date(live.createdAt).toLocaleString()}
+        {live.resolvedAt && ` · Resolved ${new Date(live.resolvedAt).toLocaleString()}`}
       </p>
 
-      {result.publicComments.length > 0 && (
+      {live.publicComments.length > 0 && (
         <div className="mt-4 space-y-2 border-t border-border pt-3">
           <p className="text-xs font-medium text-muted-foreground">Updates</p>
           <ul className="space-y-2">
-            {result.publicComments.map((c, i) => (
+            {live.publicComments.map((c, i) => (
               <li key={i} className="rounded-md bg-secondary/50 p-2.5 text-sm">
                 <p className="whitespace-pre-wrap">{c.comment}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</p>

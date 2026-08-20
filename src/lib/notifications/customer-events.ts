@@ -1,6 +1,6 @@
 import "server-only";
 import { sendEmail } from "@/lib/email/resend";
-import { customerEmailShell } from "@/lib/email/templates";
+import { customerEmailShell, APP_URL } from "@/lib/email/templates";
 import type { SupportStage } from "@/lib/support-stage";
 
 interface TrackedTicket {
@@ -33,6 +33,12 @@ function deadlineHtml(dueAt: Date | null): string {
   return `<p style="font-size:13px; color:#475467; margin:4px 0 0;">Expected response by ${dueAt.toLocaleString()}.</p>`;
 }
 
+/** Deep-links straight into the public tracker with the lookup pre-filled and auto-submitted (see track-request-form.tsx) — the customer clicks and lands on their live status, no retyping. */
+function trackingUrl(ticketNumber: string, email: string): string {
+  const params = new URLSearchParams({ tab: "track", ticketNumber, email });
+  return `${APP_URL}/help?${params.toString()}`;
+}
+
 /**
  * Fires once, right after a ticket lands (staff-logged or public portal),
  * so the customer has an immediate confirmation with their reference number
@@ -48,6 +54,7 @@ export async function notifyCustomerReceived(ticket: TrackedTicket, stakeholder:
       `Hi ${stakeholder.firstName}, we've received your request`,
       `<p style="color:#475467; font-size:14px; line-height:1.6;">${ticket.subject}</p>${trackerHtml(1)}${deadlineHtml(ticket.dueAt)}`,
       ticket.ticketNumber,
+      trackingUrl(ticket.ticketNumber, stakeholder.email),
     ),
   });
 }
@@ -70,6 +77,7 @@ export async function notifyCustomerStageChanged(ticket: TrackedTicket, stakehol
       `Hi ${stakeholder.firstName}, ${done ? "your request is done" : "there's an update on your request"}`,
       `<p style="color:#475467; font-size:14px; line-height:1.6;">${ticket.subject}</p>${trackerHtml(stage)}${done ? "" : deadlineHtml(ticket.dueAt)}`,
       ticket.ticketNumber,
+      trackingUrl(ticket.ticketNumber, stakeholder.email),
     ),
   });
 }
