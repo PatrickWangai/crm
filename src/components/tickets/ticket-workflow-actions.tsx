@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { TicketStatus } from "@prisma/client";
-import { PhoneCall, CheckCircle2 } from "lucide-react";
+import { Bell, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateTicketStatusAction } from "@/app/(app)/tickets/actions";
 import { AcceptTicketDialog } from "@/components/tickets/accept-ticket-dialog";
@@ -10,12 +10,13 @@ import { AcceptTicketDialog } from "@/components/tickets/accept-ticket-dialog";
 /**
  * Fast, guided path through the common lifecycle a department follows on an
  * incoming request: Receive it (self-assign + confirm an ETA, REQUEST_LOGGED
- * -> ASSIGNED, see accept-ticket-dialog.tsx) -> Contact the customer
- * (ASSIGNED -> IN_PROGRESS) -> Mark fulfilled (IN_PROGRESS -> COMPLETED).
- * Each stage change is what the customer sees reflected in their tracking
- * view (see lib/support-stage.ts). The generic TicketStatusControl dropdown
- * stays available alongside this for anything outside the common path
- * (reopening, closing, skipping ahead).
+ * -> ASSIGNED, see accept-ticket-dialog.tsx) -> Notify the customer
+ * (ASSIGNED -> IN_PROGRESS, which also emails them "we're working on it" —
+ * see notifyCustomerStageChanged in customer-events.ts) -> Mark fulfilled
+ * (IN_PROGRESS -> COMPLETED). Each stage change is what the customer sees
+ * reflected in their tracking view (see lib/support-stage.ts). The generic
+ * TicketStatusControl dropdown stays available alongside this for anything
+ * outside the common path (reopening, closing, skipping ahead).
  */
 export function TicketWorkflowActions({
   ticketId,
@@ -43,18 +44,23 @@ export function TicketWorkflowActions({
   }
 
   const showReceive = canAssign && status === "REQUEST_LOGGED";
-  const showContact = canUpdate && status === "ASSIGNED";
+  const showNotify = canUpdate && status === "ASSIGNED";
   const showFulfil = canUpdate && status === "IN_PROGRESS";
 
-  if (!showReceive && !showContact && !showFulfil) return null;
+  if (!showReceive && !showNotify && !showFulfil) return null;
 
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap items-center gap-2">
         {showReceive && <AcceptTicketDialog ticketId={ticketId} currentUserId={currentUserId} dueAt={dueAt} />}
-        {showContact && (
-          <Button size="sm" loading={isPending} onClick={() => run(() => updateTicketStatusAction(ticketId, "IN_PROGRESS"))}>
-            <PhoneCall className="size-3.5" /> Contact customer
+        {showNotify && (
+          <Button
+            size="sm"
+            loading={isPending}
+            title="Sends the customer a 'we're working on it' email"
+            onClick={() => run(() => updateTicketStatusAction(ticketId, "IN_PROGRESS"))}
+          >
+            <Bell className="size-3.5" /> Notify customer
           </Button>
         )}
         {showFulfil && (
