@@ -7,6 +7,7 @@ import { classifyTicket } from "@/lib/ai/classify-ticket";
 import { isAiAssistantEnabledPublic } from "@/lib/services/ai.service";
 import { getSupportStage } from "@/lib/support-stage";
 import { notifyNewRequest } from "@/lib/notifications/ticket-events";
+import { suggestDepartment } from "@/lib/services/department-routing";
 import type { PublicSupportRequestInput, PublicTicketStatus } from "@/lib/validation/public-support";
 
 function cleanId(value?: string | null): string | null {
@@ -74,6 +75,14 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
   const priority: TicketPriority = classification?.priority ?? "MEDIUM";
 
   const sla = await pickSlaForTicket(priority, businessUnitId);
+
+  // Auto-assign a department only when the wording/category cleanly matches
+  // exactly one (see suggestDepartment) — an ambiguous or no-match result is
+  // left for Customer Care to route by hand rather than guessing wrong.
+  const suggestion = suggestDepartment(input.category, input.subject, input.description);
+  const suggestedDepartment =
+    suggestion.status === "matched" ? await prisma.department.findFirst({ where: { code: suggestion.departments[0].code } }) : null;
+
   const ticket = await prisma.ticket.create({
     data: {
       ticketNumber: await nextTicketNumber(),
@@ -84,6 +93,7 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
       priority,
       status: "REQUEST_LOGGED",
       businessUnitId: businessUnitId ?? undefined,
+      departmentId: suggestedDepartment?.id,
       slaId: sla?.id,
       dueAt: sla ? new Date(Date.now() + sla.resolutionTimeMinutes * 60_000) : undefined,
     },

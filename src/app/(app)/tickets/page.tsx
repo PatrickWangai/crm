@@ -13,6 +13,8 @@ import { TicketFilters } from "@/components/tickets/ticket-filters";
 import { TicketFormSheet } from "@/components/tickets/ticket-form-sheet";
 import { TicketKanban } from "@/components/tickets/ticket-kanban";
 import { CheckSlaRiskButton } from "@/components/tickets/check-sla-risk-button";
+import { RoutingCheckIcon } from "@/components/tickets/routing-check";
+import { checkRouting } from "@/lib/services/department-routing";
 import { initials } from "@/lib/utils";
 import { Ticket as TicketIcon } from "lucide-react";
 import type { TicketPriority, TicketStatus } from "@prisma/client";
@@ -92,6 +94,7 @@ async function TableSection({
         <TableHeader>
           <TableRow>
             <TableHead>Ticket</TableHead>
+            <TableHead>Department</TableHead>
             <TableHead>Stakeholder</TableHead>
             <TableHead>Priority</TableHead>
             <TableHead>Status</TableHead>
@@ -109,6 +112,12 @@ async function TableSection({
                     {ticket.ticketNumber} &middot; {ticket.category}
                   </p>
                 </Link>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span>{ticket.department?.name ?? "—"}</span>
+                  <RoutingCheckIcon check={checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description)} />
+                </div>
               </TableCell>
               <TableCell>
                 <Link href={`/stakeholders/${ticket.stakeholder.id}`} className="flex items-center gap-2 text-sm hover:text-primary">

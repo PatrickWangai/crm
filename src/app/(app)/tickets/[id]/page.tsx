@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getTicketDetail } from "@/lib/services/ticket.service";
+import { checkRouting } from "@/lib/services/department-routing";
 import { listBusinessUnitOptions, listDepartmentOptions, listStakeholderOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { isAiAssistantEnabled, suggestTicketReply } from "@/lib/services/ai.service";
 import {
@@ -23,6 +24,7 @@ import { TicketFormSheet } from "@/components/tickets/ticket-form-sheet";
 import { DeleteTicketButton } from "@/components/tickets/delete-ticket-button";
 import { TicketStatusControl } from "@/components/tickets/ticket-status-control";
 import { TicketWorkflowActions } from "@/components/tickets/ticket-workflow-actions";
+import { RoutingCheckNote } from "@/components/tickets/routing-check";
 import { AssignTicketSelect } from "@/components/tickets/assign-ticket-select";
 import { TicketCommentSection } from "@/components/tickets/ticket-comment-section";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
@@ -165,6 +167,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <InfoRow icon={Phone} label="Stakeholder phone" value={ticket.stakeholder.phone ?? "—"} />
               <InfoRow icon={Building2} label="Business unit" value={ticket.businessUnit?.name ?? "—"} />
               <InfoRow icon={Building2} label="Department" value={ticket.department?.name ?? "—"} />
+              <RoutingCheckNote check={checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description)} />
             </CardContent>
           </Card>
 

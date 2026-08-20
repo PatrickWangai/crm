@@ -36,6 +36,7 @@ const ticketListInclude = {
   stakeholder: { select: { id: true, firstName: true, lastName: true, code: true } },
   assignedTo: { select: { id: true, firstName: true, lastName: true } },
   businessUnit: { select: { id: true, name: true, code: true } },
+  department: { select: { id: true, name: true, code: true } },
   sla: { select: { id: true, name: true, resolutionTimeMinutes: true } },
   _count: { select: { comments: true, communications: true, documents: true } },
 } as const;
