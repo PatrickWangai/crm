@@ -3,6 +3,8 @@ import { z } from "zod";
 export const TICKET_CATEGORIES = [
   "Billing Inquiry",
   "Maintenance Request",
+  "Sales & Marketing",
+  "HR & Administration",
   "Complaint",
   "General Inquiry",
   "Service Request",

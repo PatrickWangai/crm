@@ -7,17 +7,23 @@ type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 /**
  * Every category a customer can pick on the public "which service is this
  * about" form maps to exactly one department — this is the actual routing
- * decision, made the moment a request comes in. Billing and Maintenance go
- * to their specialist departments; Technical Support goes to ICT; anything
- * without an obvious specialist home (Complaint, General Inquiry, Service
- * Request, Account Update, Other) goes to Customer Care, who triage and
- * reassign by hand if a specific one turns out to belong elsewhere.
+ * decision, made the moment a request comes in. Billing, Maintenance, Sales
+ * & Marketing and HR & Administration go to their specialist departments;
+ * Technical Support goes to ICT; anything without an obvious specialist home
+ * (Complaint, General Inquiry, Service Request, Account Update, Other) goes
+ * to Customer Care, who triage and reassign by hand if a specific one turns
+ * out to belong elsewhere. Deliberately excludes departments a customer has
+ * no business selecting directly — Board, Executive, Internal Audit, SACCO
+ * Credit Committee — those are internal oversight, not customer-facing
+ * services.
  *
  * Department codes must match a real Department.code from prisma/seed.ts.
  */
 const CATEGORY_DEPARTMENTS: Record<TicketCategory, { code: string; name: string }> = {
   "Billing Inquiry": { code: "FIN", name: "Finance" },
   "Maintenance Request": { code: "PROPERTY", name: "Property Management" },
+  "Sales & Marketing": { code: "SALES", name: "Sales & Marketing" },
+  "HR & Administration": { code: "HR", name: "HR & Administration" },
   "Technical Support": { code: "ICT", name: "ICT" },
   Complaint: { code: "CARE", name: "Customer Care" },
   "General Inquiry": { code: "CARE", name: "Customer Care" },

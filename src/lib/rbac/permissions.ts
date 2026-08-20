@@ -156,6 +156,12 @@ const BASE_SALES: string[] = [
   "tasks.update",
   "reports.view",
   "notifications.view_own",
+  // "Sales & Marketing" tickets (public support requests routed to this
+  // department — see department-routing.ts) need to actually be visible and
+  // actionable, not just notified about.
+  "tickets.view_own",
+  "tickets.assign",
+  "tickets.update",
 ];
 
 /**
@@ -290,6 +296,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "communications.create",
     "reports.view",
     "notifications.view_own",
+    // "HR & Administration" tickets (public support requests routed to this
+    // department — see department-routing.ts) need to actually be visible
+    // and actionable, not just notified about.
+    "tickets.view_own",
+    "tickets.assign",
+    "tickets.update",
   ],
   "ict-administrator": ALL,
   "property-manager": [
