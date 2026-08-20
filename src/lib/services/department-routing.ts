@@ -1,84 +1,114 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
+import { TICKET_CATEGORIES } from "@/lib/validation/ticket";
+
+type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 
 /**
- * Which department(s) beyond the default tickets.assign holders (CEO,
- * Customer Care) should be notified about a ticket — matched by exact
- * category OR by wording, since a customer might tag something
- * "Complaint"/"General Inquiry" that's actually about money or a leaking
- * pipe rather than picking the "obvious" category. Add a row here to route
- * a new department; each permissionCode should be one that department
- * actually holds (checked against ROLE_PERMISSIONS), and departmentCode
- * should match a real Department.code from prisma/seed.ts. Shared between
- * the public portal (new request, department assignment) and the internal
- * ticket lifecycle (accepted, completed, routing-check display) so the same
- * matching logic drives all of it.
+ * Every category a customer can pick on the public "which service is this
+ * about" form maps to exactly one department — this is the actual routing
+ * decision, made the moment a request comes in. Billing and Maintenance go
+ * to their specialist departments; Technical Support goes to ICT; anything
+ * without an obvious specialist home (Complaint, General Inquiry, Service
+ * Request, Account Update, Other) goes to Customer Care, who triage and
+ * reassign by hand if a specific one turns out to belong elsewhere.
+ *
+ * Department codes must match a real Department.code from prisma/seed.ts.
  */
-const DEPARTMENT_ROUTES: { permissionCode: string; departmentCode: string; departmentName: string; categories: string[]; keywords: string[] }[] = [
+const CATEGORY_DEPARTMENTS: Record<TicketCategory, { code: string; name: string }> = {
+  "Billing Inquiry": { code: "FIN", name: "Finance" },
+  "Maintenance Request": { code: "PROPERTY", name: "Property Management" },
+  "Technical Support": { code: "ICT", name: "ICT" },
+  Complaint: { code: "CARE", name: "Customer Care" },
+  "General Inquiry": { code: "CARE", name: "Customer Care" },
+  "Service Request": { code: "CARE", name: "Customer Care" },
+  "Account Update": { code: "CARE", name: "Customer Care" },
+  Other: { code: "CARE", name: "Customer Care" },
+};
+
+const CARE_DEPARTMENT_CODE = "CARE";
+
+/**
+ * Purely advisory — never changes which department a ticket actually lands
+ * in. Flags when the free-text wording suggests a different department than
+ * the category implies (e.g. "General Inquiry" that mentions "leak"), so
+ * Customer Care can catch a miscategorized request instead of it silently
+ * sitting in the wrong queue.
+ */
+const WORDING_HINTS: { departmentCode: string; departmentName: string; keywords: string[] }[] = [
   {
-    permissionCode: "finance.view",
     departmentCode: "FIN",
     departmentName: "Finance",
-    categories: ["Billing Inquiry"],
     keywords: ["invoice", "bill", "billing", "payment", "charge", "refund", "receipt", "overcharged", "rent", "arrears", "disbursement", "statement"],
   },
   {
-    permissionCode: "maintenance.manage",
     departmentCode: "PROPERTY",
     departmentName: "Property Management",
-    categories: ["Maintenance Request"],
     keywords: ["leak", "broken", "repair", "plumbing", "electrical", "faulty", "not working", "burst", "flooding"],
   },
 ];
 
-function matchedRoutes(category: string, subject: string, description: string) {
-  const text = `${subject} ${description}`.toLowerCase();
-  return DEPARTMENT_ROUTES.filter((route) => route.categories.includes(category) || route.keywords.some((k) => text.includes(k)));
-}
-
-export function matchedDepartmentPermissions(category: string, subject: string, description: string): string[] {
-  return matchedRoutes(category, subject, description).map((route) => route.permissionCode);
-}
-
 export interface DepartmentSuggestion {
-  /** "matched" = exactly one department's wording/category matched, safe to auto-assign. "ambiguous" = more than one matched, needs a human call. "none" = nothing specific matched (a general inquiry, stays in the general Customer Care queue). */
-  status: "matched" | "ambiguous" | "none";
-  departments: { code: string; name: string }[];
+  /** The department this ticket's category deterministically belongs to — the actual routing decision. */
+  department: { code: string; name: string };
+  /** A different department the wording hints at, if any — review-only signal. */
+  wordingHint: { code: string; name: string } | null;
 }
 
-/** Pure, synchronous — same matching used for notification routing, reframed as a department recommendation for a specific ticket's content. */
+/** Category → department is a straight lookup; falls back to Customer Care for anything unrecognized rather than leaving a ticket unrouted. */
 export function suggestDepartment(category: string, subject: string, description: string): DepartmentSuggestion {
-  const matches = matchedRoutes(category, subject, description);
-  if (matches.length === 0) return { status: "none", departments: [] };
-  const departments = matches.map((m) => ({ code: m.departmentCode, name: m.departmentName }));
-  return { status: matches.length === 1 ? "matched" : "ambiguous", departments };
+  const department = CATEGORY_DEPARTMENTS[category as TicketCategory] ?? CATEGORY_DEPARTMENTS.Other;
+  const text = `${subject} ${description}`.toLowerCase();
+  const hint = WORDING_HINTS.find((h) => h.departmentCode !== department.code && h.keywords.some((k) => text.includes(k)));
+  return { department, wordingHint: hint ? { code: hint.departmentCode, name: hint.departmentName } : null };
 }
 
 export interface RoutingCheck {
-  suggestion: DepartmentSuggestion;
-  /** false only when the suggestion engine has an opinion (matched or ambiguous) that disagrees with — or wasn't applied to — the ticket's current department. */
   needsReview: boolean;
+  message: string | null;
+  expectedDepartment: { code: string; name: string };
 }
 
-/** Compares a ticket's current department against what the routing engine would suggest from its content right now — flags drift from manual reassignment, edited wording, or an ambiguous/no-match case that was never resolved. */
+/** Compares a ticket's current department against where its category says it belongs, plus checks the wording hint — used to render the routing warning on the ticket list/detail pages. */
 export function checkRouting(currentDepartmentCode: string | null | undefined, category: string, subject: string, description: string): RoutingCheck {
   const suggestion = suggestDepartment(category, subject, description);
-  if (suggestion.status === "none") return { suggestion, needsReview: false };
-  if (suggestion.status === "ambiguous") return { suggestion, needsReview: true };
-  return { suggestion, needsReview: currentDepartmentCode !== suggestion.departments[0].code };
+  const wrongDepartment = currentDepartmentCode !== suggestion.department.code;
+
+  if (wrongDepartment) {
+    return {
+      needsReview: true,
+      message: `This is a "${category}" request — it belongs with ${suggestion.department.name}. ${
+        currentDepartmentCode ? "Currently routed elsewhere" : "Currently unassigned"
+      }; reassign if that looks right.`,
+      expectedDepartment: suggestion.department,
+    };
+  }
+
+  if (suggestion.wordingHint) {
+    return {
+      needsReview: true,
+      message: `Routed to ${suggestion.department.name} based on category, but the wording also sounds like a ${suggestion.wordingHint.name} matter — worth a second look.`,
+      expectedDepartment: suggestion.department,
+    };
+  }
+
+  return { needsReview: false, message: null, expectedDepartment: suggestion.department };
 }
 
 /**
- * Active users who should be kept in the loop on a ticket: general triage
- * (tickets.assign — CEO, Customer Care, anyone with broad ticket authority)
- * plus whichever specific department(s) the wording/category routes to.
+ * Active staff who should be kept in the loop on a ticket: whoever's in the
+ * department its category routes to, plus Customer Care always — they're
+ * the front desk and see every request regardless of which department
+ * actually handles it.
  */
 export async function getTicketWatchers(category: string, subject: string, description: string) {
-  const permissionCodes = ["tickets.assign", ...matchedDepartmentPermissions(category, subject, description)];
+  const { department } = suggestDepartment(category, subject, description);
+  const departmentCodes = Array.from(new Set([department.code, CARE_DEPARTMENT_CODE]));
+
   return prisma.user.findMany({
     where: {
       status: "ACTIVE",
-      role: { rolePermissions: { some: { permission: { code: { in: permissionCodes } } } } },
+      department: { code: { in: departmentCodes } },
     },
     select: { id: true, email: true, firstName: true, lastName: true },
     distinct: ["id"],

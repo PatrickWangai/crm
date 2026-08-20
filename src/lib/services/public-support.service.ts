@@ -114,12 +114,10 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
 
   const sla = await pickSlaForTicket(priority, businessUnitId);
 
-  // Auto-assign a department only when the wording/category cleanly matches
-  // exactly one (see suggestDepartment) — an ambiguous or no-match result is
-  // left for Customer Care to route by hand rather than guessing wrong.
-  const suggestion = suggestDepartment(input.category, input.subject, input.description);
-  const suggestedDepartment =
-    suggestion.status === "matched" ? await prisma.department.findFirst({ where: { code: suggestion.departments[0].code } }) : null;
+  // Every category routes to exactly one department (see suggestDepartment) —
+  // this is the actual forwarding decision, made the moment the request lands.
+  const { department } = suggestDepartment(input.category, input.subject, input.description);
+  const routedDepartment = await prisma.department.findFirst({ where: { code: department.code } });
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -131,7 +129,7 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
       priority,
       status: "REQUEST_LOGGED",
       businessUnitId: businessUnitId ?? undefined,
-      departmentId: suggestedDepartment?.id,
+      departmentId: routedDepartment?.id,
       slaId: sla?.id,
       dueAt: sla ? new Date(Date.now() + sla.resolutionTimeMinutes * 60_000) : undefined,
     },
