@@ -7,6 +7,7 @@ import { classifyTicket } from "@/lib/ai/classify-ticket";
 import { isAiAssistantEnabledPublic } from "@/lib/services/ai.service";
 import { getSupportStage } from "@/lib/support-stage";
 import { notifyNewRequest } from "@/lib/notifications/ticket-events";
+import { notifyCustomerReceived } from "@/lib/notifications/customer-events";
 import { suggestDepartment } from "@/lib/services/department-routing";
 import type { PublicSupportRequestInput, PublicTicketStatus } from "@/lib/validation/public-support";
 
@@ -145,6 +146,7 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
   });
 
   await notifyNewRequest(ticket, "Help & Support");
+  await notifyCustomerReceived(ticket, stakeholder);
 
   const ticketWithRelations = await prisma.ticket.findUniqueOrThrow({
     where: { id: ticket.id },

@@ -5,6 +5,8 @@ import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
 import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded } from "@/lib/notifications/ticket-events";
+import { notifyCustomerReceived, notifyCustomerStageChanged } from "@/lib/notifications/customer-events";
+import { getSupportStage } from "@/lib/support-stage";
 import { CUSTOMER_FACING_DEPARTMENT_CODES } from "@/lib/services/department-routing";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
@@ -145,6 +147,7 @@ export async function createTicket(input: TicketInput) {
       slaId: sla?.id,
       dueAt: sla ? new Date(Date.now() + sla.resolutionTimeMinutes * 60_000) : undefined,
     },
+    include: { stakeholder: { select: { firstName: true, email: true } } },
   });
 
   await recordAudit({
@@ -164,6 +167,8 @@ export async function createTicket(input: TicketInput) {
       relatedUrl: `/tickets/${ticket.id}`,
     });
   }
+
+  await notifyCustomerReceived(ticket, ticket.stakeholder);
 
   return ticket;
 }
@@ -219,10 +224,17 @@ export async function updateTicketStatus(id: string, status: TicketStatus, note?
       resolvedAt: status === "COMPLETED" && !before.resolvedAt ? new Date() : undefined,
       closedAt: status === "CLOSED" && !before.closedAt ? new Date() : undefined,
     },
+    include: { stakeholder: { select: { firstName: true, email: true } } },
   });
 
   if (status === "COMPLETED" && before.status !== "COMPLETED") {
     await notifyTicketCompleted(ticket, actor);
+  }
+
+  const stageBefore = getSupportStage(before.status).stage;
+  const stageAfter = getSupportStage(status).stage;
+  if (stageAfter > stageBefore) {
+    await notifyCustomerStageChanged(ticket, ticket.stakeholder, stageAfter);
   }
 
   if (note) {
