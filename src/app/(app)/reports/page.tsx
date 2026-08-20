@@ -1,14 +1,18 @@
 import { requireAnyPermissionOrRedirect } from "@/lib/rbac/guard";
 import {
+  getComplaintsReport,
   getFinanceReport,
   getLeadPipelineReport,
   getLeadSourceReport,
+  getLeaseExpiryReport,
   getMaintenanceReport,
   getMonthlyRevenueTrend,
   getOccupancyReport,
   getTaskReport,
   getTicketSlaReport,
+  type ReportFilters,
 } from "@/lib/services/report.service";
+import { listBusinessUnitOptions, listDepartmentOptions, listPropertyRegions, listUserOptions } from "@/lib/services/lookups.service";
 import { isAiAssistantEnabled, summarizeReportInsights } from "@/lib/services/ai.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,24 +20,48 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FunnelChart, DistributionBarChart, StatusPieChart } from "@/components/reports/report-charts";
 import { ExportReportButton } from "@/components/reports/export-report-button";
+import { ReportFiltersBar } from "@/components/reports/report-filters-bar";
 import { AiReportInsightsCard } from "@/components/ai/ai-report-insights-card";
 import { formatCurrency, labelize } from "@/lib/utils";
-import { TrendingUp, Ticket, Home, Receipt, Wrench, CheckSquare, Target, Percent } from "lucide-react";
+import { TrendingUp, Ticket, Home, Receipt, Wrench, CheckSquare, Target, Percent, AlertTriangle, CalendarClock } from "lucide-react";
+import type { TicketStatus } from "@prisma/client";
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAnyPermissionOrRedirect(["reports.view"]);
+  const sp = await searchParams;
 
-  const [pipeline, sources, ticketSla, occupancy, finance, maintenance, tasks, monthlyRevenue, aiEnabled] = await Promise.all([
-    getLeadPipelineReport(),
-    getLeadSourceReport(),
-    getTicketSlaReport(),
-    getOccupancyReport(),
-    getFinanceReport(),
-    getMaintenanceReport(),
-    getTaskReport(),
-    getMonthlyRevenueTrend(),
-    isAiAssistantEnabled(),
-  ]);
+  const rawDateFrom = typeof sp.dateFrom === "string" ? sp.dateFrom : undefined;
+  const rawDateTo = typeof sp.dateTo === "string" ? sp.dateTo : undefined;
+  const dateTo = rawDateTo ? new Date(`${rawDateTo}T23:59:59.999`) : undefined;
+
+  const filters: ReportFilters = {
+    dateFrom: rawDateFrom ? new Date(rawDateFrom) : undefined,
+    dateTo,
+    businessUnitId: typeof sp.businessUnitId === "string" && sp.businessUnitId ? sp.businessUnitId : undefined,
+    departmentId: typeof sp.departmentId === "string" && sp.departmentId ? sp.departmentId : undefined,
+    employeeId: typeof sp.employeeId === "string" && sp.employeeId ? sp.employeeId : undefined,
+    region: typeof sp.region === "string" && sp.region ? sp.region : undefined,
+    ticketStatus: typeof sp.status === "string" && sp.status ? (sp.status as TicketStatus) : undefined,
+  };
+
+  const [pipeline, sources, ticketSla, occupancy, finance, maintenance, tasks, monthlyRevenue, complaints, leaseExpiry, businessUnits, departments, staff, regions, aiEnabled] =
+    await Promise.all([
+      getLeadPipelineReport(filters),
+      getLeadSourceReport(filters),
+      getTicketSlaReport(filters),
+      getOccupancyReport(filters),
+      getFinanceReport(filters),
+      getMaintenanceReport(filters),
+      getTaskReport(filters),
+      getMonthlyRevenueTrend(filters),
+      getComplaintsReport(filters),
+      getLeaseExpiryReport(filters),
+      listBusinessUnitOptions(),
+      listDepartmentOptions(),
+      listUserOptions(),
+      listPropertyRegions(),
+      isAiAssistantEnabled(),
+    ]);
 
   const aiInsights = aiEnabled ? summarizeReportInsights({ pipeline, ticketSla, occupancy, finance, maintenance, monthlyRevenue }) : null;
 
@@ -51,9 +79,13 @@ export default async function ReportsPage() {
             finance={finance}
             maintenance={maintenance}
             tasks={tasks}
+            complaints={complaints}
+            leaseExpiry={leaseExpiry}
           />
         }
       />
+
+      <ReportFiltersBar businessUnits={businessUnits} departments={departments} staff={staff} regions={regions} />
 
       {aiInsights && <AiReportInsightsCard insights={aiInsights} />}
 
@@ -132,6 +164,84 @@ export default async function ReportsPage() {
         </Card>
       </section>
 
+      {/* Customer complaints */}
+      <section className="space-y-4">
+        <SectionHeading icon={AlertTriangle} title="Customer Complaints" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Total complaints" value={complaints.total} icon={AlertTriangle} />
+          <StatCard
+            label="Open complaints"
+            value={complaints.byStatus.filter((s) => s.status !== "COMPLETED" && s.status !== "CLOSED").reduce((sum, s) => sum + s.count, 0)}
+            icon={AlertTriangle}
+            tone="warning"
+          />
+          <StatCard label="Avg. resolution time" value={complaints.avgResolutionDays !== null ? `${complaints.avgResolutionDays} day(s)` : "—"} icon={CheckSquare} tone="info" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Complaints by status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {complaints.byStatus.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">No complaints logged yet.</p>
+              ) : (
+                <DistributionBarChart data={complaints.byStatus.map((s) => ({ label: labelize(s.status), count: s.count }))} name="Complaints" />
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Complaints by department</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {complaints.byDepartment.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">No complaints logged yet.</p>
+              ) : (
+                <DistributionBarChart data={complaints.byDepartment.map((d) => ({ label: d.department, count: d.count }))} name="Complaints" />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent complaints</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {complaints.recent.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No complaints logged yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ticket</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Logged</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {complaints.recent.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="text-sm font-medium">
+                        {c.ticketNumber} — {c.subject}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{c.stakeholderName}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{c.department}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{labelize(c.priority)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{labelize(c.status)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{c.createdAt.toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       {/* Property */}
       <section className="space-y-4">
         <SectionHeading icon={Home} title="Property Portfolio" />
@@ -152,6 +262,65 @@ export default async function ReportsPage() {
             )}
           </CardContent>
         </Card>
+      </section>
+
+      {/* Lease expiry */}
+      <section className="space-y-4">
+        <SectionHeading icon={CalendarClock} title="Lease Expiry" />
+        <div className="grid gap-4 sm:grid-cols-4">
+          <StatCard label="Expiring in 30 days" value={leaseExpiry.expiring30} icon={CalendarClock} tone="warning" />
+          <StatCard label="Expiring in 60 days" value={leaseExpiry.expiring60} icon={CalendarClock} />
+          <StatCard label="Expiring in 90 days" value={leaseExpiry.expiring90} icon={CalendarClock} />
+          <StatCard label="Overdue renewal" value={leaseExpiry.overdue} icon={AlertTriangle} tone="destructive" hint="Still active, past their end date" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Leases by status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {leaseExpiry.byStatus.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">No leases on the portfolio yet.</p>
+              ) : (
+                <StatusPieChart data={leaseExpiry.byStatus.map((s) => ({ label: labelize(s.status), count: s.count }))} />
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Upcoming expiries</CardTitle>
+              <CardDescription>Active leases, soonest first.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {leaseExpiry.upcoming.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">No upcoming lease expiries in this window.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lease</TableHead>
+                      <TableHead>Tenant</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead>Ends</TableHead>
+                      <TableHead>Days left</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leaseExpiry.upcoming.map((l) => (
+                      <TableRow key={l.id}>
+                        <TableCell className="text-sm font-medium">{l.code}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{l.tenantName}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{l.unitLabel}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{l.endDate.toLocaleDateString()}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{l.daysRemaining < 0 ? `${Math.abs(l.daysRemaining)} overdue` : l.daysRemaining}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       {/* Finance */}

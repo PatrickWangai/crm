@@ -17,6 +17,18 @@ export async function listBusinessUnitOptions() {
   return prisma.businessUnit.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, code: true } });
 }
 
+/** Distinct, non-empty property regions — feeds the Reports page region filter. */
+export async function listPropertyRegions() {
+  await requireAuth();
+  const rows = await prisma.property.findMany({
+    where: { region: { not: null } },
+    distinct: ["region"],
+    orderBy: { region: "asc" },
+    select: { region: true },
+  });
+  return rows.map((r) => r.region).filter((r): r is string => !!r);
+}
+
 export async function listUserOptions() {
   await requireAuth();
   const users = await prisma.user.findMany({

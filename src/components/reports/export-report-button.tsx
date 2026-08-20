@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { rowsToCsv, downloadTextFile } from "@/lib/csv";
 import { labelize } from "@/lib/utils";
 import type {
+  getComplaintsReport,
   getFinanceReport,
   getLeadPipelineReport,
   getLeadSourceReport,
+  getLeaseExpiryReport,
   getMaintenanceReport,
   getOccupancyReport,
   getTaskReport,
@@ -22,6 +24,8 @@ export function ExportReportButton({
   finance,
   maintenance,
   tasks,
+  complaints,
+  leaseExpiry,
 }: {
   pipeline: Awaited<ReturnType<typeof getLeadPipelineReport>>;
   sources: Awaited<ReturnType<typeof getLeadSourceReport>>;
@@ -30,6 +34,8 @@ export function ExportReportButton({
   finance: Awaited<ReturnType<typeof getFinanceReport>>;
   maintenance: Awaited<ReturnType<typeof getMaintenanceReport>>;
   tasks: Awaited<ReturnType<typeof getTaskReport>>;
+  complaints: Awaited<ReturnType<typeof getComplaintsReport>>;
+  leaseExpiry: Awaited<ReturnType<typeof getLeaseExpiryReport>>;
 }) {
   function handleExport() {
     const rows: (string | number)[][] = [];
@@ -63,6 +69,20 @@ export function ExportReportButton({
     for (const p of ticketSla.byPriority) rows.push([labelize(p.priority), p.count]);
     rows.push([]);
 
+    rows.push(["Customer Complaints"]);
+    rows.push(["Total complaints", complaints.total]);
+    rows.push(["Avg. resolution time (days)", complaints.avgResolutionDays ?? "N/A"]);
+    rows.push([]);
+    rows.push(["Status", "Count"]);
+    for (const s of complaints.byStatus) rows.push([labelize(s.status), s.count]);
+    rows.push([]);
+    rows.push(["Department", "Count"]);
+    for (const d of complaints.byDepartment) rows.push([d.department, d.count]);
+    rows.push([]);
+    rows.push(["Ticket", "Subject", "Customer", "Department", "Priority", "Status", "Logged"]);
+    for (const c of complaints.recent) rows.push([c.ticketNumber, c.subject, c.stakeholderName, c.department, labelize(c.priority), labelize(c.status), c.createdAt.toLocaleDateString()]);
+    rows.push([]);
+
     rows.push(["Property Portfolio"]);
     rows.push(["Total units", occupancy.total]);
     rows.push(["Occupied", occupancy.occupied]);
@@ -70,6 +90,19 @@ export function ExportReportButton({
     rows.push([]);
     rows.push(["Unit status", "Count"]);
     for (const s of occupancy.byStatus) rows.push([labelize(s.status), s.count]);
+    rows.push([]);
+
+    rows.push(["Lease Expiry"]);
+    rows.push(["Expiring in 30 days", leaseExpiry.expiring30]);
+    rows.push(["Expiring in 60 days", leaseExpiry.expiring60]);
+    rows.push(["Expiring in 90 days", leaseExpiry.expiring90]);
+    rows.push(["Overdue renewal", leaseExpiry.overdue]);
+    rows.push([]);
+    rows.push(["Lease status", "Count"]);
+    for (const s of leaseExpiry.byStatus) rows.push([labelize(s.status), s.count]);
+    rows.push([]);
+    rows.push(["Lease", "Tenant", "Unit", "Ends", "Days left", "Rent"]);
+    for (const l of leaseExpiry.upcoming) rows.push([l.code, l.tenantName, l.unitLabel, l.endDate.toLocaleDateString(), l.daysRemaining, l.rentAmount]);
     rows.push([]);
 
     rows.push(["Finance"]);
