@@ -180,6 +180,7 @@ export async function trackPublicSupportRequest(ticketNumber: string, email: str
     businessUnitName: ticket.businessUnit?.name ?? null,
     createdAt: ticket.createdAt.toISOString(),
     resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
+    expectedResponseBy: ticket.dueAt ? ticket.dueAt.toISOString() : null,
     publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),
   };
 }
@@ -213,6 +214,7 @@ export async function getTicketStatusForBridge(ticketNumber: string): Promise<Pu
     businessUnitName: ticket.businessUnit?.name ?? null,
     createdAt: ticket.createdAt.toISOString(),
     resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
+    expectedResponseBy: ticket.dueAt ? ticket.dueAt.toISOString() : null,
     publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),
   };
 }

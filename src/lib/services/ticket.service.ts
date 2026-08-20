@@ -236,6 +236,39 @@ export async function updateTicketStatus(id: string, status: TicketStatus, note?
   return ticket;
 }
 
+/**
+ * The explicit "Accept" step a department takes on an incoming request —
+ * self-assign plus confirm (or tighten/loosen) the response deadline in one
+ * action, mirroring a restaurant tapping "Accept Order" with a prep time.
+ * Passing dueAt as null keeps whatever deadline the ticket already has
+ * (usually the SLA-computed one from creation) — staff aren't required to
+ * touch it, only to confirm they've taken the request.
+ */
+export async function acceptTicket(id: string, assignedToId: string, dueAt: Date | null) {
+  const actor = await requireAnyPermission(["tickets.assign"]);
+  const before = await prisma.ticket.findUniqueOrThrow({ where: { id } });
+
+  const ticket = await prisma.ticket.update({
+    where: { id },
+    data: {
+      assignedToId,
+      status: before.status === "REQUEST_LOGGED" ? "ASSIGNED" : undefined,
+      dueAt: dueAt ?? before.dueAt,
+    },
+  });
+
+  await recordAudit({
+    userId: actor.id,
+    action: "ticket.accepted",
+    entityType: "Ticket",
+    entityId: id,
+    previousValue: { assignedToId: before.assignedToId, dueAt: before.dueAt },
+    newValue: { assignedToId, dueAt: ticket.dueAt },
+  });
+
+  return ticket;
+}
+
 export async function assignTicket(id: string, assignedToId: string | null) {
   const actor = await requireAnyPermission(["tickets.assign"]);
   const before = await prisma.ticket.findUniqueOrThrow({ where: { id } });

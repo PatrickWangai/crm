@@ -5,7 +5,7 @@ import type { TicketStatus } from "@prisma/client";
 import { ticketSchema, ticketStatusChangeSchema, ticketCommentSchema, type TicketFormState, type TicketCommentFormState } from "@/lib/validation/ticket";
 import { communicationSchema, type CommunicationFormState, type DocumentFormState } from "@/lib/validation/communication";
 import { taskSchema, type TaskFormState } from "@/lib/validation/task";
-import { assignTicket, addTicketComment, createTicket, deleteTicket, updateTicket, updateTicketStatus, checkSlaRisk } from "@/lib/services/ticket.service";
+import { acceptTicket, assignTicket, addTicketComment, createTicket, deleteTicket, updateTicket, updateTicketStatus, checkSlaRisk } from "@/lib/services/ticket.service";
 import { logCommunication } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
 import { createTask } from "@/lib/services/task.service";
@@ -67,6 +67,17 @@ export async function updateTicketStatusAction(id: string, status: TicketStatus,
   if (!parsed.success) return { error: "Invalid status." };
   try {
     await updateTicketStatus(id, parsed.data.status, parsed.data.note);
+    revalidatePath("/tickets");
+    revalidatePath(`/tickets/${id}`);
+    return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function acceptTicketAction(id: string, assignedToId: string, dueAtIso: string | null): Promise<{ error?: string }> {
+  try {
+    await acceptTicket(id, assignedToId, dueAtIso ? new Date(dueAtIso) : null);
     revalidatePath("/tickets");
     revalidatePath(`/tickets/${id}`);
     return {};

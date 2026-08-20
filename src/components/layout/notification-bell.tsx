@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { markAllNotificationsReadAction, markNotificationReadAction } from "@/app/actions/notifications";
+import { markAllNotificationsReadAction, markNotificationReadAction, getNotificationSnapshotAction } from "@/app/actions/notifications";
 
 export interface NotificationItem {
   id: string;
@@ -20,15 +20,67 @@ export interface NotificationItem {
   relatedUrl?: string | null;
 }
 
-export function NotificationBell({ notifications, unreadCount }: { notifications: NotificationItem[]; unreadCount: number }) {
+const POLL_INTERVAL_MS = 20_000;
+
+/** Short attention tone, synthesized so no audio asset is needed — the "loud alert" equivalent of a delivery app's new-order chime. Silently no-ops if the browser blocks audio before any user gesture. */
+function playAlertTone() {
+  try {
+    const AudioContextClass = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+    osc.onended = () => ctx.close();
+  } catch {
+    // Audio unavailable/blocked — the visual pulse below still conveys the alert.
+  }
+}
+
+/**
+ * Polls for new notifications every 20s so an incoming ticket (or any other
+ * notification) grabs attention without requiring a page reload or a full
+ * websocket/push infrastructure — a short tone + a pulsing bell, similar in
+ * spirit to a delivery app's tablet alert. The first snapshot after mount
+ * never triggers the alert, only ones after it that increase the unread
+ * count.
+ */
+export function NotificationBell({ notifications: initialNotifications, unreadCount: initialUnreadCount }: { notifications: NotificationItem[]; unreadCount: number }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+  const [alerting, setAlerting] = useState(false);
+  const lastUnreadCount = useRef(initialUnreadCount);
+
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const snapshot = await getNotificationSnapshotAction();
+      if (snapshot.unreadCount > lastUnreadCount.current) {
+        playAlertTone();
+        setAlerting(true);
+        setTimeout(() => setAlerting(false), 2500);
+      }
+      lastUnreadCount.current = snapshot.unreadCount;
+      setNotifications(snapshot.notifications);
+      setUnreadCount(snapshot.unreadCount);
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-          <Bell className="size-5" />
+        <Button variant="ghost" size="icon" className={cn("relative", alerting && "animate-pulse")} aria-label="Notifications">
+          <Bell className={cn("size-5", alerting && "text-destructive")} />
           {unreadCount > 0 && (
             <span className="absolute right-1.5 top-1.5 flex size-2 rounded-full bg-destructive ring-2 ring-card" />
           )}
@@ -40,7 +92,14 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
           {unreadCount > 0 && (
             <button
               disabled={isPending}
-              onClick={() => startTransition(() => markAllNotificationsReadAction())}
+              onClick={() =>
+                startTransition(async () => {
+                  await markAllNotificationsReadAction();
+                  setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                  setUnreadCount(0);
+                  lastUnreadCount.current = 0;
+                })
+              }
               className="flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-50"
             >
               <CheckCheck className="size-3.5" />
@@ -62,7 +121,12 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
                 key={n.id}
                 onClick={() =>
                   startTransition(async () => {
-                    if (!n.isRead) await markNotificationReadAction(n.id);
+                    if (!n.isRead) {
+                      await markNotificationReadAction(n.id);
+                      setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item)));
+                      setUnreadCount((prev) => Math.max(0, prev - 1));
+                      lastUnreadCount.current = Math.max(0, lastUnreadCount.current - 1);
+                    }
                     if (n.relatedUrl) router.push(n.relatedUrl);
                   })
                 }

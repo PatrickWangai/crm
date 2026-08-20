@@ -118,7 +118,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <TicketWorkflowActions ticketId={ticket.id} status={ticket.status} currentUserId={user.id} canAssign={canAssign} canUpdate={canUpdate} />
+            <TicketWorkflowActions ticketId={ticket.id} status={ticket.status} currentUserId={user.id} dueAt={ticket.dueAt} canAssign={canAssign} canUpdate={canUpdate} />
             {canUpdate && <TicketStatusControl ticketId={ticket.id} currentStatus={ticket.status} />}
             {canUpdate && (
               <TicketFormSheet

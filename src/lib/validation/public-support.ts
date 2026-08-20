@@ -45,6 +45,7 @@ export interface PublicTicketStatus {
   businessUnitName: string | null;
   createdAt: string;
   resolvedAt: string | null;
+  expectedResponseBy: string | null;
   publicComments: { comment: string; createdAt: string }[];
 }
 
