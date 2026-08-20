@@ -5,9 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/status-badge";
-import { SupportStageStepper } from "@/components/support/support-stage-stepper";
-import { ResponseCountdown } from "@/components/support/response-countdown";
+import { TrackingResultCard } from "@/components/support/tracking-result-card";
 import { trackPublicSupportRequestAction } from "@/app/help/actions";
 import type { TrackRequestFormState } from "@/lib/validation/public-support";
 
@@ -42,41 +40,7 @@ export function TrackRequestForm() {
         <SubmitButton />
       </form>
 
-      {state.result && (
-        <div className="rounded-lg border border-border bg-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-medium">{state.result.subject}</p>
-              <p className="text-xs text-muted-foreground">{state.result.ticketNumber} &middot; {state.result.category}</p>
-            </div>
-            <StatusBadge status={state.result.priority} />
-          </div>
-
-          <div className="mt-4 mb-1">
-            <SupportStageStepper stage={state.result.stage} activeLabel={state.result.stageLabel} />
-          </div>
-          <ResponseCountdown expectedResponseBy={state.result.expectedResponseBy} stage={state.result.stage} />
-
-          <p className="mt-3 text-xs text-muted-foreground">
-            Submitted {new Date(state.result.createdAt).toLocaleString()}
-            {state.result.resolvedAt && ` · Resolved ${new Date(state.result.resolvedAt).toLocaleString()}`}
-          </p>
-
-          {state.result.publicComments.length > 0 && (
-            <div className="mt-4 space-y-2 border-t border-border pt-3">
-              <p className="text-xs font-medium text-muted-foreground">Updates</p>
-              <ul className="space-y-2">
-                {state.result.publicComments.map((c, i) => (
-                  <li key={i} className="rounded-md bg-secondary/50 p-2.5 text-sm">
-                    <p className="whitespace-pre-wrap">{c.comment}</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      {state.result && <TrackingResultCard result={state.result} />}
     </div>
   );
 }

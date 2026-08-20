@@ -44,6 +44,9 @@ export async function submitPublicSupportRequestAction(_prev: PublicSupportFormS
       success: true,
       ticketNumber: result.ticketNumber,
       expectedResponseBy: result.expectedResponseBy ? result.expectedResponseBy.toISOString() : undefined,
+      contactEmail: result.contactEmail ?? undefined,
+      contactPhone: result.contactPhone ?? undefined,
+      tracking: result.tracking,
     };
   } catch (err) {
     return { error: friendlyError(err) };

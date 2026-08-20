@@ -19,14 +19,6 @@ export const publicSupportRequestSchema = z
 
 export type PublicSupportRequestInput = z.infer<typeof publicSupportRequestSchema>;
 
-export interface PublicSupportFormState {
-  error?: string;
-  fieldErrors?: Record<string, string[]>;
-  success?: boolean;
-  ticketNumber?: string;
-  expectedResponseBy?: string;
-}
-
 export const trackRequestSchema = z.object({
   ticketNumber: z.string().trim().min(1, "Enter your reference number"),
   email: z.string().trim().toLowerCase().email("Enter the email you used when submitting"),
@@ -52,4 +44,16 @@ export interface PublicTicketStatus {
 export interface TrackRequestFormState {
   error?: string;
   result?: PublicTicketStatus;
+}
+
+export interface PublicSupportFormState {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+  ticketNumber?: string;
+  expectedResponseBy?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  /** Live tracking snapshot for the just-created ticket, so the submitter sees real status immediately without re-entering their reference number and email. */
+  tracking?: PublicTicketStatus;
 }

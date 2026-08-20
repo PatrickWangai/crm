@@ -10,9 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { submitPublicSupportRequestAction } from "@/app/help/actions";
 import { TICKET_CATEGORIES } from "@/lib/validation/ticket";
 import { classifyTicket } from "@/lib/ai/classify-ticket";
+import { TrackingResultCard } from "@/components/support/tracking-result-card";
 import type { PublicSupportFormState } from "@/lib/validation/public-support";
 
 const initialState: PublicSupportFormState = {};
+
+function contactMessage(email?: string, phone?: string): string | null {
+  if (email && phone) return `We'll reach out to you at ${email} or ${phone} as your request moves forward.`;
+  if (email) return `We'll reach out to you at ${email} as your request moves forward.`;
+  if (phone) return `We'll reach out to you at ${phone} as your request moves forward.`;
+  return null;
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -47,6 +55,7 @@ export function PublicSupportForm({
   }
 
   if (state.success) {
+    const contact = contactMessage(state.contactEmail, state.contactPhone);
     return (
       <>
         {popupOpen && (
@@ -64,27 +73,24 @@ export function PublicSupportForm({
                 Your reference number is <span className="font-mono font-semibold text-foreground">{state.ticketNumber}</span>. Keep it —
                 you&apos;ll need it to track your request below.
               </p>
-              {state.expectedResponseBy && (
-                <p className="mt-2 text-sm text-muted-foreground">Expected response by {new Date(state.expectedResponseBy).toLocaleString()}.</p>
-              )}
+              {contact && <p className="mt-2 text-sm text-muted-foreground">{contact}</p>}
               <Button className="mt-4 w-full" onClick={() => setPopupOpen(false)}>
                 Close
               </Button>
             </div>
           </div>
         )}
-        <div className="rounded-lg border border-success/30 bg-success-muted/40 p-6 text-center">
-          <CheckCircle2 className="mx-auto size-10 text-success" />
-          <h3 className="mt-3 text-lg font-semibold">Request received</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your reference number is <span className="font-mono font-semibold text-foreground">{state.ticketNumber}</span>. Keep it — you&apos;ll
-            need it to track your request below.
-          </p>
-          {state.expectedResponseBy && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Expected response by {new Date(state.expectedResponseBy).toLocaleString()}.
+        <div className="space-y-4">
+          <div className="rounded-lg border border-success/30 bg-success-muted/40 p-6 text-center">
+            <CheckCircle2 className="mx-auto size-10 text-success" />
+            <h3 className="mt-3 text-lg font-semibold">Request received</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your reference number is <span className="font-mono font-semibold text-foreground">{state.ticketNumber}</span>. Keep it — you&apos;ll
+              need it to track your request below.
             </p>
-          )}
+            {contact && <p className="mt-2 text-sm text-muted-foreground">{contact}</p>}
+          </div>
+          {state.tracking && <TrackingResultCard result={state.tracking} />}
         </div>
       </>
     );

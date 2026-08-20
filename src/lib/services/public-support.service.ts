@@ -29,9 +29,47 @@ export async function listPublicBusinessUnits() {
   return prisma.businessUnit.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, code: true } });
 }
 
+/**
+ * Shared by the email-gated lookup (trackPublicSupportRequest), the trusted
+ * bridge lookup (getTicketStatusForBridge), and the just-submitted case
+ * (submitPublicSupportRequest, which already has legitimate access to the
+ * ticket it just created and doesn't need either check).
+ */
+function buildPublicTicketStatus(ticket: {
+  ticketNumber: string;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  businessUnit: { name: string } | null;
+  createdAt: Date;
+  resolvedAt: Date | null;
+  dueAt: Date | null;
+  comments: { comment: string; createdAt: Date }[];
+}): PublicTicketStatus {
+  const { stage, label } = getSupportStage(ticket.status, ticket.businessUnit?.name);
+  return {
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    category: ticket.category,
+    priority: ticket.priority,
+    status: ticket.status,
+    stage,
+    stageLabel: label,
+    businessUnitName: ticket.businessUnit?.name ?? null,
+    createdAt: ticket.createdAt.toISOString(),
+    resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
+    expectedResponseBy: ticket.dueAt ? ticket.dueAt.toISOString() : null,
+    publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),
+  };
+}
+
 export interface PublicSupportSubmissionResult {
   ticketNumber: string;
   expectedResponseBy: Date | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  tracking: PublicTicketStatus;
 }
 
 /**
@@ -109,7 +147,21 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
 
   await notifyNewRequest(ticket, "Help & Support");
 
-  return { ticketNumber: ticket.ticketNumber, expectedResponseBy: ticket.dueAt };
+  const ticketWithRelations = await prisma.ticket.findUniqueOrThrow({
+    where: { id: ticket.id },
+    include: {
+      businessUnit: { select: { name: true } },
+      comments: { where: { isInternal: false }, orderBy: { createdAt: "asc" }, select: { comment: true, createdAt: true } },
+    },
+  });
+
+  return {
+    ticketNumber: ticket.ticketNumber,
+    expectedResponseBy: ticket.dueAt,
+    contactEmail: email,
+    contactPhone: phone,
+    tracking: buildPublicTicketStatus(ticketWithRelations),
+  };
 }
 
 /**
@@ -131,22 +183,7 @@ export async function trackPublicSupportRequest(ticketNumber: string, email: str
   if (!ticket || !ticket.stakeholder.email || ticket.stakeholder.email.toLowerCase() !== email.toLowerCase()) {
     return null;
   }
-
-  const { stage, label } = getSupportStage(ticket.status, ticket.businessUnit?.name);
-  return {
-    ticketNumber: ticket.ticketNumber,
-    subject: ticket.subject,
-    category: ticket.category,
-    priority: ticket.priority,
-    status: ticket.status,
-    stage,
-    stageLabel: label,
-    businessUnitName: ticket.businessUnit?.name ?? null,
-    createdAt: ticket.createdAt.toISOString(),
-    resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
-    expectedResponseBy: ticket.dueAt ? ticket.dueAt.toISOString() : null,
-    publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),
-  };
+  return buildPublicTicketStatus(ticket);
 }
 
 /**
@@ -165,20 +202,5 @@ export async function getTicketStatusForBridge(ticketNumber: string): Promise<Pu
     },
   });
   if (!ticket) return null;
-
-  const { stage, label } = getSupportStage(ticket.status, ticket.businessUnit?.name);
-  return {
-    ticketNumber: ticket.ticketNumber,
-    subject: ticket.subject,
-    category: ticket.category,
-    priority: ticket.priority,
-    status: ticket.status,
-    stage,
-    stageLabel: label,
-    businessUnitName: ticket.businessUnit?.name ?? null,
-    createdAt: ticket.createdAt.toISOString(),
-    resolvedAt: ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null,
-    expectedResponseBy: ticket.dueAt ? ticket.dueAt.toISOString() : null,
-    publicComments: ticket.comments.map((c) => ({ comment: c.comment, createdAt: c.createdAt.toISOString() })),
-  };
+  return buildPublicTicketStatus(ticket);
 }
