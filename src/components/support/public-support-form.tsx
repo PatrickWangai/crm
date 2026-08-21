@@ -54,7 +54,7 @@ export function PublicSupportForm({
 }) {
   const [state, formAction] = useActionState(submitPublicSupportRequestAction, initialState);
   const [businessUnitId, setBusinessUnitId] = useState("");
-  const [category, setCategory] = useState<string>(TICKET_CATEGORIES[3]);
+  const [category, setCategory] = useState<string>("Don't Know");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
 

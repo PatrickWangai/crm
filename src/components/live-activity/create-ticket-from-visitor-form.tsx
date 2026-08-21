@@ -22,7 +22,7 @@ export function CreateTicketFromVisitorForm({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [category, setCategory] = useState<string>(TICKET_CATEGORIES[0]);
+  const [category, setCategory] = useState<string>("Don't Know");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState(false);
