@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { UserStatus } from "@prisma/client";
 import { requireAuth, requirePermission } from "@/lib/rbac/guard";
+import { DEPARTMENT_TEAM_ROLES } from "@/lib/rbac/department-team-roles";
 import { recordAudit } from "@/lib/audit/log";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validation/user";
@@ -59,12 +60,16 @@ export async function listUsers(params: ListUsersParams = {}) {
   return { data, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
-export async function getUserById(id: string) {
-  await requirePermission("users.manage");
+async function getUserByIdInternal(id: string) {
   return prisma.user.findUnique({
     where: { id },
     include: { ...userListInclude, reportingTo: { select: { id: true, firstName: true, lastName: true } } },
   });
+}
+
+export async function getUserById(id: string) {
+  await requirePermission("users.manage");
+  return getUserByIdInternal(id);
 }
 
 function generateTempPassword(): string {
@@ -78,9 +83,7 @@ function cleanId(value?: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-export async function createUser(input: CreateUserInput): Promise<{ user: Awaited<ReturnType<typeof getUserById>>; tempPassword: string }> {
-  const actor = await requirePermission("users.manage");
-
+async function createUserRecord(actorId: string, input: CreateUserInput): Promise<{ user: Awaited<ReturnType<typeof getUserByIdInternal>>; tempPassword: string }> {
   const count = await prisma.user.count();
   const employeeId = `MW-${String(count + 1).padStart(4, "0")}`;
   const tempPassword = generateTempPassword();
@@ -105,14 +108,75 @@ export async function createUser(input: CreateUserInput): Promise<{ user: Awaite
   });
 
   await recordAudit({
-    userId: actor.id,
+    userId: actorId,
     action: "user.created",
     entityType: "User",
     entityId: user.id,
     newValue: { email: user.email, roleId: user.roleId },
   });
 
-  return { user: await getUserById(user.id), tempPassword };
+  return { user: await getUserByIdInternal(user.id), tempPassword };
+}
+
+export async function createUser(input: CreateUserInput): Promise<{ user: Awaited<ReturnType<typeof getUserByIdInternal>>; tempPassword: string }> {
+  const actor = await requirePermission("users.manage");
+  return createUserRecord(actor.id, input);
+}
+
+/**
+ * Department-scoped self-service: lets a department head (customer-care,
+ * cfo, hr-administration, property-manager, or any of the three sales
+ * roles — see permissions.ts) add a teammate without going through ICT.
+ * departmentId/businessUnitId/reportingToId are always forced to the
+ * actor's own values, never trusted from the submitted input — that's the
+ * actual boundary preventing a department head from creating an account in
+ * a department that isn't theirs, not just a UI nicety.
+ */
+export async function createDepartmentTeamMember(input: CreateUserInput): Promise<{ user: Awaited<ReturnType<typeof getUserByIdInternal>>; tempPassword: string }> {
+  const actor = await requirePermission("users.manage_department");
+  if (!actor.department) {
+    throw new Error("Your account isn't linked to a department yet — ask ICT to set that up first.");
+  }
+
+  const allowedSlugs = DEPARTMENT_TEAM_ROLES[actor.department.code] ?? [];
+  if (allowedSlugs.length === 0) {
+    throw new Error(`${actor.department.name} can't add team members yet — ask ICT to add this account.`);
+  }
+
+  const role = await prisma.role.findUnique({ where: { id: input.roleId }, select: { slug: true } });
+  if (!role || !allowedSlugs.includes(role.slug)) {
+    throw new Error("Choose a role that belongs to your department.");
+  }
+
+  return createUserRecord(actor.id, {
+    ...input,
+    departmentId: actor.department.id,
+    businessUnitId: actor.businessUnitId ?? "",
+    reportingToId: actor.id,
+  });
+}
+
+/** The department head's own teammates — same department only, never the whole organization. */
+export async function listOwnDepartmentTeam() {
+  const actor = await requirePermission("users.manage_department");
+  if (!actor.department) return [];
+
+  return prisma.user.findMany({
+    where: { departmentId: actor.department.id },
+    include: { role: { select: { name: true } } },
+    orderBy: [{ status: "asc" }, { firstName: "asc" }],
+  });
+}
+
+/** Which roles the current user is allowed to assign when adding a teammate — drives the role picker on "My Team". */
+export async function listOwnDepartmentAssignableRoles() {
+  const actor = await requirePermission("users.manage_department");
+  if (!actor.department) return [];
+
+  const allowedSlugs = DEPARTMENT_TEAM_ROLES[actor.department.code] ?? [];
+  if (allowedSlugs.length === 0) return [];
+
+  return prisma.role.findMany({ where: { slug: { in: allowedSlugs } }, select: { id: true, name: true, slug: true }, orderBy: { name: "asc" } });
 }
 
 export async function updateUser(id: string, input: UpdateUserInput) {

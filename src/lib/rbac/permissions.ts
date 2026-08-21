@@ -120,6 +120,7 @@ export const PERMISSIONS: PermissionDef[] = [
   p("employees", "manage", "Create / update employee records"),
 
   p("users", "manage", "Manage user accounts"),
+  p("users", "manage_department", "Add team members within your own department"),
   p("roles", "manage", "Manage roles & permissions"),
   p("departments", "manage", "Manage departments & business units"),
   p("audit_logs", "view", "View system audit logs"),
@@ -164,6 +165,9 @@ const BASE_SALES: string[] = [
   "tickets.view_own",
   "tickets.assign",
   "tickets.update",
+  // Each sales team can grow itself without going through ICT — see
+  // department-team-roles.ts for exactly which roles this lets them add.
+  "users.manage_department",
 ];
 
 /**
@@ -258,6 +262,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tasks.update",
     "reports.view",
     "notifications.view_own",
+    "users.manage_department",
   ],
   finance: [
     "dashboard.view",
@@ -293,6 +298,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tickets.update",
     "audit_logs.view",
     "notifications.view_own",
+    // CFO, not Finance Officer, is Finance's head — mirrors who else holds
+    // this across departments (customer-care, property-manager, etc.).
+    "users.manage_department",
   ],
   "hr-administration": [
     "dashboard.view",
@@ -313,6 +321,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tickets.view_own",
     "tickets.assign",
     "tickets.update",
+    "users.manage_department",
   ],
   "ict-administrator": ALL,
   "property-manager": [
@@ -344,6 +353,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tasks.assign",
     "reports.view",
     "notifications.view_own",
+    // Senior Property Manager is Property Management's head — can add the
+    // department's other three roles (see department-team-roles.ts).
+    "users.manage_department",
   ],
   "regional-property-coordinator": [
     "dashboard.view",
