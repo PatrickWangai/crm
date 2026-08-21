@@ -4,6 +4,7 @@ import { isAiAssistantEnabled } from "@/lib/services/ai.service";
 import { AiAssistantProvider } from "@/lib/ai/ai-context";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { StaffAssistant } from "@/components/assistant/staff-assistant";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -19,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">{children}</main>
         </div>
       </div>
+      {aiEnabled && <StaffAssistant />}
     </AiAssistantProvider>
   );
 }

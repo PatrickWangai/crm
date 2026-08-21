@@ -485,6 +485,36 @@ export async function nudgeTicket(id: string) {
   return recipientIds.size;
 }
 
+/**
+ * Read-only version of the same 80%-elapsed-or-breached check checkSlaRisk()
+ * does — for displaying a summary (e.g. in the staff assistant) without
+ * sending a fresh round of notifications every time someone just wants to
+ * look. Scoped the same way the tickets list already is: everything for
+ * tickets.view_all, only the viewer's own for tickets.view_own.
+ */
+export async function listAtRiskTickets() {
+  const user = await requireAnyPermission(VIEW_PERMS);
+  const scopedToSelf = !hasPermission(user, "tickets.view_all");
+
+  const openTickets = await prisma.ticket.findMany({
+    where: {
+      status: { notIn: ["COMPLETED", "CLOSED"] },
+      dueAt: { not: null },
+      ...(scopedToSelf ? { OR: [{ assignedToId: user.id }, { assignedToId: null }] } : {}),
+    },
+    select: { id: true, ticketNumber: true, subject: true, dueAt: true, createdAt: true },
+  });
+
+  const now = Date.now();
+  return openTickets
+    .filter((t) => {
+      if (!t.dueAt) return false;
+      const elapsed = (now - t.createdAt.getTime()) / (t.dueAt.getTime() - t.createdAt.getTime());
+      return t.dueAt.getTime() < now || elapsed >= SLA_RISK_THRESHOLD;
+    })
+    .map((t) => ({ ticketNumber: t.ticketNumber, subject: t.subject, breached: t.dueAt!.getTime() < now }));
+}
+
 export async function deleteTicket(id: string) {
   const actor = await requireAnyPermission(["tickets.delete"]);
 
