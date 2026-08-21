@@ -120,7 +120,7 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
   // Every category routes to exactly one department (see suggestDepartment) —
   // this is the actual forwarding decision, made the moment the request lands.
   // For categories that land in Customer Care, the business unit picks which
-  // of the three CC teams (real estate / SACCO / insurance).
+  // of the two CC teams (real estate / SACCO).
   const { department } = suggestDepartment(input.category, input.subject, input.description, businessUnit?.code);
   const routedDepartment = await prisma.department.findFirst({ where: { code: department.code } });
 

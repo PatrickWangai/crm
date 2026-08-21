@@ -14,19 +14,19 @@ const BUSINESS_UNITS: { code: BusinessUnitCode; name: string; description: strin
   { code: "MHL", name: "Masterways Housing Limited", description: "Housing cooperative and developments" },
 ];
 
-// The company runs a separate Customer Care team per business unit, not one
-// shared team — CARE_MRE (real estate) is the default/fallback for general
-// or unclear requests; CARE_SACCO and CARE_INSURANCE are new. The old single
-// "CARE" department is renamed in place to CARE_MRE (see the migration step
-// in main() below) so existing users/tickets keep their department, rather
-// than being recreated under a new id.
+// The company runs a separate Customer Care team per business unit it
+// actually staffs one for — just Real Estate and SACCO, not one shared
+// team. CARE_MRE is the default/fallback for general, unclear, or
+// insurance-related requests (there's no dedicated Insurance CC team). The
+// old single "CARE" department is renamed in place to CARE_MRE (see the
+// migration step in main() below) so existing users/tickets keep their
+// department, rather than being recreated under a new id.
 const DEPARTMENTS: { code: string; name: string; businessUnit: BusinessUnitCode }[] = [
   { code: "EXEC", name: "Executive Office", businessUnit: "MGC" },
   { code: "AUDIT", name: "Internal Audit", businessUnit: "MGC" },
   { code: "SALES", name: "Sales & Marketing", businessUnit: "MGC" },
   { code: "CARE_MRE", name: "Customer Care – Real Estate", businessUnit: "MRE" },
   { code: "CARE_SACCO", name: "Customer Care – SACCO", businessUnit: "MSL" },
-  { code: "CARE_INSURANCE", name: "Customer Care – Insurance", businessUnit: "MIA" },
   { code: "FIN", name: "Finance", businessUnit: "MGC" },
   { code: "HR", name: "Human Resource & Administration", businessUnit: "MGC" },
   { code: "ICT", name: "ICT Department", businessUnit: "MGC" },
@@ -43,7 +43,6 @@ const REPORTING_LINES: Record<string, string> = {
   "property-manager@masterways.co.ke": "regional-manager@masterways.co.ke",
   "customer-care@masterways.co.ke": "ceo@masterways.co.ke",
   "customer-care-sacco@masterways.co.ke": "management@masterways.co.ke",
-  "customer-care-insurance@masterways.co.ke": "ceo@masterways.co.ke",
   "sales-marketing@masterways.co.ke": "ceo@masterways.co.ke",
   "regional-property-coordinator@masterways.co.ke": "regional-manager@masterways.co.ke",
   "regional-manager@masterways.co.ke": "ceo@masterways.co.ke",
@@ -129,6 +128,35 @@ async function main() {
       data: { code: "CARE_MRE", name: "Customer Care – Real Estate", businessUnitId: mreBusinessUnitId },
     });
     console.log("Migrated existing Customer Care department (CARE) -> CARE_MRE");
+  }
+
+  // One-time cleanup: CARE_INSURANCE was created by an earlier version of
+  // this seed and is being removed — Customer Care only runs Real Estate
+  // and SACCO teams. Reassigns anything that landed there (tickets, leads,
+  // tasks, reviews) to CARE_MRE before deleting the department, and
+  // removes the demo account that was in it (deleting, not reassigning —
+  // it shouldn't exist at all now, unlike the CARE rename above which kept
+  // its user). Guarded the same way: a no-op once CARE_INSURANCE is gone.
+  const insuranceCareDept = await prisma.department.findUnique({ where: { code: "CARE_INSURANCE" } });
+  if (insuranceCareDept) {
+    const mreDept = await prisma.department.findUniqueOrThrow({ where: { code: "CARE_MRE" } });
+    await prisma.ticket.updateMany({ where: { departmentId: insuranceCareDept.id }, data: { departmentId: mreDept.id } });
+    await prisma.lead.updateMany({ where: { departmentId: insuranceCareDept.id }, data: { departmentId: mreDept.id } });
+    await prisma.task.updateMany({ where: { departmentId: insuranceCareDept.id }, data: { departmentId: mreDept.id } });
+    await prisma.review.updateMany({ where: { departmentId: insuranceCareDept.id }, data: { departmentId: mreDept.id } });
+
+    const insuranceCareUsers = await prisma.user.findMany({ where: { departmentId: insuranceCareDept.id }, select: { id: true } });
+    const insuranceCareUserIds = insuranceCareUsers.map((u) => u.id);
+    if (insuranceCareUserIds.length > 0) {
+      // AuditLog.userId doesn't cascade (audit history is normally kept even
+      // if the actor is later removed) — safe to clear here since this
+      // account never should have existed, not real history being erased.
+      await prisma.auditLog.deleteMany({ where: { userId: { in: insuranceCareUserIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: insuranceCareUserIds } } });
+    }
+
+    await prisma.department.delete({ where: { id: insuranceCareDept.id } });
+    console.log("Removed Customer Care – Insurance (CARE_INSURANCE) — Customer Care only runs Real Estate and SACCO teams");
   }
 
   console.log("Seeding departments...");

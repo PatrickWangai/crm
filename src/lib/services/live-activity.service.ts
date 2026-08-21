@@ -11,7 +11,7 @@ const LIVE_WINDOW_MS = 60_000;
 // the visit) has no department of its own — it defaults to whichever
 // Customer Care team is the general front desk, same fallback used for
 // undifferentiated ticket routing (see department-routing.ts).
-const CARE_DEPARTMENT_CODES = ["CARE_MRE", "CARE_SACCO", "CARE_INSURANCE"];
+const CARE_DEPARTMENT_CODES = ["CARE_MRE", "CARE_SACCO"];
 
 export interface LiveActivitySnapshot {
   liveVisitorCount: number;

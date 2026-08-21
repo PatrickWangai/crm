@@ -11,11 +11,10 @@
  * ticket routing (see department-routing.ts's CUSTOMER_FACING_DEPARTMENT_CODES).
  */
 export const DEPARTMENT_TEAM_ROLES: Record<string, string[]> = {
-  // Customer Care is one team per business unit, not one shared team — see
-  // the CARE -> CARE_MRE migration note in prisma/seed.ts.
+  // Customer Care runs a Real Estate team and a SACCO team, not one shared
+  // team — see the CARE -> CARE_MRE migration note in prisma/seed.ts.
   CARE_MRE: ["customer-care"],
   CARE_SACCO: ["customer-care"],
-  CARE_INSURANCE: ["customer-care"],
   FIN: ["finance", "cfo"],
   HR: ["hr-administration"],
   ICT: ["ict-administrator"],
@@ -34,7 +33,7 @@ export const DEPARTMENT_TEAM_ROLES: Record<string, string[]> = {
  * on My Team — see user.service.ts's succeedDepartmentHead). Only
  * departments with a genuinely distinct head role above the rest of the
  * team appear here — Finance (Officer -> CFO) and Property (the other three
- * roles -> Senior Property Manager). The three Customer Care teams, HR,
+ * roles -> Senior Property Manager). The two Customer Care teams, HR,
  * ICT and Sales each have either just one shared role (no promotion to
  * model) or several equally-ranked variants with no defined head, so
  * succession isn't offered there.

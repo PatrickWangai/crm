@@ -41,14 +41,14 @@ const CATEGORY_DEPARTMENTS: Record<TicketCategory, { code: string; name: string 
 
 const CARE_DEPARTMENTS_BY_BUSINESS_UNIT: Record<string, { code: string; name: string }> = {
   MSL: { code: "CARE_SACCO", name: "Customer Care – SACCO" },
-  MIA: { code: "CARE_INSURANCE", name: "Customer Care – Insurance" },
 };
 
 /**
  * Which Customer Care team a request lands in — MRE's is the default/
- * fallback for anything general, unclear, or from a business unit without
- * its own dedicated team (Housing, corporate/MGC, or no business unit
- * picked at all), per how the company actually runs this.
+ * fallback for anything general, unclear, insurance-related, or from a
+ * business unit without its own dedicated team (Housing, corporate/MGC, or
+ * no business unit picked at all) — Customer Care only runs Real Estate
+ * and SACCO teams, per how the company actually runs this.
  */
 function resolveCareDepartment(businessUnitCode?: string | null): { code: string; name: string } {
   if (businessUnitCode && CARE_DEPARTMENTS_BY_BUSINESS_UNIT[businessUnitCode]) {
@@ -65,16 +65,7 @@ function resolveCareDepartment(businessUnitCode?: string | null): { code: string
  * Audit/SACCO Credit Committee) that have no staff able to act on a ticket
  * once it's there.
  */
-export const CUSTOMER_FACING_DEPARTMENT_CODES: readonly string[] = [
-  "FIN",
-  "PROPERTY",
-  "SALES",
-  "HR",
-  "ICT",
-  "CARE_MRE",
-  "CARE_SACCO",
-  "CARE_INSURANCE",
-];
+export const CUSTOMER_FACING_DEPARTMENT_CODES: readonly string[] = ["FIN", "PROPERTY", "SALES", "HR", "ICT", "CARE_MRE", "CARE_SACCO"];
 
 /**
  * Purely advisory — never changes which department a ticket actually lands
@@ -108,7 +99,7 @@ export interface DepartmentSuggestion {
  * for anything unrecognized rather than leaving a ticket unrouted.
  * `businessUnitCode` (a BusinessUnit.code like "MSL", not an id) only
  * matters for the categories that land in Customer Care — it picks which
- * of the three CC teams; every other category's department is fixed
+ * of the two CC teams; every other category's department is fixed
  * regardless of business unit.
  */
 export function suggestDepartment(category: string, subject: string, description: string, businessUnitCode?: string | null): DepartmentSuggestion {

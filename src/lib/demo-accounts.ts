@@ -44,5 +44,4 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   // but the end reshuffles every account after them and collides with
   // already-assigned employeeIds.
   { firstName: "Head of", lastName: "Customer Care (SACCO)", email: "customer-care-sacco@masterways.co.ke", password: "Qf82!wznTr5", roleSlug: "customer-care", departmentCode: "CARE_SACCO", businessUnitCode: "MSL", jobTitle: "Customer Care Agent – SACCO" },
-  { firstName: "Head of", lastName: "Customer Care (Insurance)", email: "customer-care-insurance@masterways.co.ke", password: "Lp39$hbVek2", roleSlug: "customer-care", departmentCode: "CARE_INSURANCE", businessUnitCode: "MIA", jobTitle: "Customer Care Agent – Insurance" },
 ];
