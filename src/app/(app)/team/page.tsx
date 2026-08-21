@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { requirePermissionOrRedirect } from "@/lib/rbac/guard";
-import { listOwnDepartmentTeam, listOwnDepartmentAssignableRoles, listSuccessionCandidates } from "@/lib/services/user.service";
+import { listOwnDepartmentTeam, listOwnDepartmentAssignableRoles } from "@/lib/services/user.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -7,15 +8,15 @@ import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TeamMemberFormSheet } from "@/components/team/team-member-form-sheet";
-import { SuccessionDialog } from "@/components/team/succession-dialog";
+import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/utils";
-import { Users as UsersIcon } from "lucide-react";
+import { Users as UsersIcon, UserCog } from "lucide-react";
 
 export default async function TeamPage() {
   const currentUser = await requirePermissionOrRedirect("users.manage_department");
 
   const departmentName = currentUser.department?.name ?? "Your department";
-  const [team, roles, successionCandidates] = await Promise.all([listOwnDepartmentTeam(), listOwnDepartmentAssignableRoles(), listSuccessionCandidates()]);
+  const [team, roles] = await Promise.all([listOwnDepartmentTeam(), listOwnDepartmentAssignableRoles()]);
 
   return (
     <div className="max-w-3xl">
@@ -24,7 +25,11 @@ export default async function TeamPage() {
         description={`Add teammates to ${departmentName} — they can accept and work customer tickets routed here as soon as they're created.`}
         actions={
           <div className="flex flex-wrap gap-2">
-            {successionCandidates.length > 0 && <SuccessionDialog headRoleName={currentUser.role.name} candidates={successionCandidates} />}
+            <Button variant="outline" asChild>
+              <Link href="/profile">
+                <UserCog className="size-4" /> Leave &amp; hand off
+              </Link>
+            </Button>
             <TeamMemberFormSheet roles={roles} departmentName={departmentName} />
           </div>
         }

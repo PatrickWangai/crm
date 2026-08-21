@@ -255,11 +255,12 @@ model Department {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  users   User[]
-  tasks   Task[]
-  tickets Ticket[]
-  reviews Review[]
-  leads   Lead[]
+  users            User[]
+  tasks            Task[]
+  tickets          Ticket[]
+  reviews          Review[]
+  leads            Lead[]
+  transferRequests TransferRequest[]
 
   @@map("departments")
 }
@@ -330,6 +331,13 @@ model User {
   hireDate         DateTime?
   employmentStatus EmploymentStatus? @default(ACTIVE)
 
+  /// Backup contact who also receives this user's notifications — set from
+  /// Profile > Notification delegate. Doesn't replace the primary
+  /// recipient, just adds a second one (see createNotification).
+  notificationDelegateId String?
+  notificationDelegate   User?  @relation("NotificationDelegate", fields: [notificationDelegateId], references: [id])
+  delegatingFor          User[] @relation("NotificationDelegate")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -357,11 +365,44 @@ model User {
   createdDisbursements Disbursement[]
   updatedSettings      SystemSetting[]
   createdTemplates     CommunicationTemplate[]
+  transfersInitiated   TransferRequest[]       @relation("TransferFrom")
+  transfersReceived    TransferRequest[]       @relation("TransferTo")
 
   @@index([roleId])
   @@index([departmentId])
   @@index([businessUnitId])
   @@map("users")
+}
+
+enum TransferRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+/// "Leave & hand off" — a two-party handoff: the outgoing user picks a
+/// successor, who must explicitly accept before anything actually moves
+/// (their tickets/tasks/leads, and their role if they hold a department
+/// head role — see DEPARTMENT_HEAD_ROLE in department-team-roles.ts). The
+/// outgoing user can only deactivate their own account once they have at
+/// least one ACCEPTED request here — "verified on both ends."
+model TransferRequest {
+  id           String                @id @default(cuid())
+  fromUserId   String
+  fromUser     User                  @relation("TransferFrom", fields: [fromUserId], references: [id])
+  toUserId     String
+  toUser       User                  @relation("TransferTo", fields: [toUserId], references: [id])
+  departmentId String
+  department   Department            @relation(fields: [departmentId], references: [id])
+  promotesRole Boolean               @default(false)
+  status       TransferRequestStatus @default(PENDING)
+  createdAt    DateTime              @default(now())
+  respondedAt  DateTime?
+
+  @@index([toUserId, status])
+  @@index([fromUserId])
+  @@map("transfer_requests")
 }
 
 model Session {

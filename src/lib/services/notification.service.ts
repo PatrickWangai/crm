@@ -16,10 +16,23 @@ export interface CreateNotificationInput {
  * agent a lead/ticket/task was assigned to) — intentionally has no permission
  * gate of its own since the caller already enforced the relevant permission.
  * Never throws — a failed notification must not break the calling action.
+ *
+ * A single chokepoint for every notification in the app, which is what
+ * makes the notification-delegate feature (Profile > Notification
+ * delegate) possible without touching every individual call site: if the
+ * recipient has one set, they get a copy too — a backup contact, not a
+ * replacement, so the original recipient still sees it.
  */
 export async function createNotification(input: CreateNotificationInput) {
   try {
-    return await prisma.notification.create({ data: input });
+    const created = await prisma.notification.create({ data: input });
+
+    const recipient = await prisma.user.findUnique({ where: { id: input.userId }, select: { notificationDelegateId: true } });
+    if (recipient?.notificationDelegateId && recipient.notificationDelegateId !== input.userId) {
+      await prisma.notification.create({ data: { ...input, userId: recipient.notificationDelegateId } });
+    }
+
+    return created;
   } catch (err) {
     console.error("Failed to create notification", err);
     return null;

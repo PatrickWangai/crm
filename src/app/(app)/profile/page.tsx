@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/rbac/guard";
 import { getOwnProfile } from "@/lib/services/user.service";
+import { listTransferCandidates, listMyOutgoingTransfers, listMyIncomingTransfers, canDeleteOwnAccount } from "@/lib/services/transfer.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,13 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
+import { TransferSection } from "@/components/profile/transfer-section";
+import { NotificationDelegateForm } from "@/components/profile/notification-delegate-form";
+import { DeleteAccountButton } from "@/components/profile/delete-account-button";
 import { updatePhoneAction } from "./actions";
 import { initials } from "@/lib/utils";
 import { Mail, Phone, Briefcase, Building2, Landmark, Users } from "lucide-react";
 
 export default async function ProfilePage() {
   await requireUser();
-  const profile = await getOwnProfile();
+  const [profile, transferCandidates, outgoingTransfers, incomingTransfers, deletionEligible] = await Promise.all([
+    getOwnProfile(),
+    listTransferCandidates(),
+    listMyOutgoingTransfers(),
+    listMyIncomingTransfers(),
+    canDeleteOwnAccount(),
+  ]);
   if (!profile) return null;
 
   const permissionsByModule = new Map<string, string[]>();
@@ -123,6 +133,36 @@ export default async function ProfilePage() {
               <p className="text-sm text-muted-foreground">Your role has no permissions assigned yet.</p>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notification delegate</CardTitle>
+          <CardDescription>A backup contact who also receives your notifications — useful while you&apos;re away, doesn&apos;t replace you.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NotificationDelegateForm candidates={transferCandidates} currentDelegateId={profile.notificationDelegateId ?? null} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Leave &amp; hand off</CardTitle>
+          <CardDescription>Transfer your work — and your role, if you hold a department head role — to a teammate, with their explicit acceptance required.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TransferSection candidates={transferCandidates} outgoing={outgoingTransfers} incoming={incomingTransfers} />
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle>Deactivate account</CardTitle>
+          <CardDescription>Only available once a successor has accepted a hand-off above — that&apos;s the &quot;verified on both ends&quot; check.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteAccountButton eligible={deletionEligible} />
         </CardContent>
       </Card>
     </div>

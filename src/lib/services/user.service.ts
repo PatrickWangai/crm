@@ -196,62 +196,6 @@ export async function listOwnDepartmentAssignableRoles() {
   return prisma.role.findMany({ where: { slug: { in: assignableSlugs } }, select: { id: true, name: true, slug: true }, orderBy: { name: "asc" } });
 }
 
-/** Existing head-role holders in the actor's own department, other than the actor — the pool a successor can be picked from. Empty (not an error) if the department has no defined head role or no other eligible teammate yet. */
-export async function listSuccessionCandidates() {
-  const actor = await requirePermission("users.manage_department");
-  if (!actor.department) return [];
-
-  const headRoleSlug = DEPARTMENT_HEAD_ROLE[actor.department.code];
-  if (!headRoleSlug || actor.role.slug !== headRoleSlug) return [];
-
-  return prisma.user.findMany({
-    where: { departmentId: actor.department.id, status: "ACTIVE", id: { not: actor.id } },
-    select: { id: true, firstName: true, lastName: true, role: { select: { name: true, slug: true } } },
-    orderBy: { firstName: "asc" },
-  });
-}
-
-/**
- * "Leave & appoint a successor" — only the current head can do this, only
- * for a department with a defined DEPARTMENT_HEAD_ROLE, and only to an
- * existing teammate already in the same department (never a role from
- * elsewhere). Promotes the successor to the head role and deactivates the
- * outgoing head's own account, in one transaction so the department is
- * never left with two heads or, briefly, zero.
- */
-export async function succeedDepartmentHead(successorUserId: string) {
-  const actor = await requirePermission("users.manage_department");
-  if (!actor.department) {
-    throw new Error("Your account isn't linked to a department yet — ask ICT to set that up first.");
-  }
-
-  const headRoleSlug = DEPARTMENT_HEAD_ROLE[actor.department.code];
-  if (!headRoleSlug || actor.role.slug !== headRoleSlug) {
-    throw new Error("Only the current department head can hand off this role.");
-  }
-
-  const successor = await prisma.user.findUnique({ where: { id: successorUserId } });
-  if (!successor || successor.departmentId !== actor.department.id || successor.status !== "ACTIVE") {
-    throw new Error("Choose an active teammate already in your department.");
-  }
-
-  const headRole = await prisma.role.findUniqueOrThrow({ where: { slug: headRoleSlug } });
-
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: successor.id }, data: { roleId: headRole.id, reportingToId: null } }),
-    prisma.user.update({ where: { id: actor.id }, data: { status: "INACTIVE" } }),
-  ]);
-
-  await recordAudit({
-    userId: actor.id,
-    action: "user.department_head_succession",
-    entityType: "User",
-    entityId: successor.id,
-    previousValue: { headUserId: actor.id },
-    newValue: { headUserId: successor.id },
-  });
-}
-
 export async function updateUser(id: string, input: UpdateUserInput) {
   const actor = await requirePermission("users.manage");
   const before = await prisma.user.findUnique({ where: { id } });

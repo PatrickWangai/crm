@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { changeOwnPassword, updateOwnContactDetails } from "@/lib/services/user.service";
+import { initiateTransfer, cancelTransfer, respondToTransfer, deleteOwnAccount, setNotificationDelegate } from "@/lib/services/transfer.service";
 
 export interface PasswordFormState {
   error?: string;
@@ -41,4 +43,60 @@ export async function updatePhoneAction(formData: FormData) {
   const phone = String(formData.get("phone") ?? "");
   await updateOwnContactDetails(phone);
   revalidatePath("/profile");
+}
+
+export interface SimpleActionState {
+  error?: string;
+  success?: boolean;
+}
+
+export async function initiateTransferAction(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const toUserId = String(formData.get("toUserId") ?? "");
+  if (!toUserId) return { error: "Choose a successor first." };
+  try {
+    await initiateTransfer(toUserId);
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not send that request." };
+  }
+}
+
+export async function cancelTransferAction(requestId: string): Promise<SimpleActionState> {
+  try {
+    await cancelTransfer(requestId);
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not cancel that request." };
+  }
+}
+
+export async function respondToTransferAction(requestId: string, accept: boolean): Promise<SimpleActionState> {
+  try {
+    await respondToTransfer(requestId, accept);
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not respond to that request." };
+  }
+}
+
+export async function setNotificationDelegateAction(delegateUserId: string | null): Promise<SimpleActionState> {
+  try {
+    await setNotificationDelegate(delegateUserId);
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not update your delegate." };
+  }
+}
+
+export async function deleteOwnAccountAction(_prev: SimpleActionState, _formData: FormData): Promise<SimpleActionState> {
+  try {
+    await deleteOwnAccount();
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not deactivate your account." };
+  }
+  redirect("/login");
 }
