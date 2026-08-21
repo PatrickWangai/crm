@@ -257,6 +257,7 @@ model Department {
   users   User[]
   tasks   Task[]
   tickets Ticket[]
+  reviews Review[]
 
   @@map("departments")
 }
@@ -418,6 +419,7 @@ model Stakeholder {
   unitsOccupied    Unit[]          @relation("UnitTenant")
   invoices         Invoice[]
   disbursements    Disbursement[]
+  reviews          Review[]
 
   @@index([type])
   @@index([businessUnitId])
@@ -696,11 +698,44 @@ model Ticket {
   communications Communication[]
   documents      Document[]
   tasks          Task[]
+  review         Review?
 
   @@index([status])
   @@index([assignedToId])
   @@index([stakeholderId])
   @@map("tickets")
+}
+
+// ---------------------------------------------------------------------------
+// CUSTOMER REVIEWS
+// ---------------------------------------------------------------------------
+
+/**
+ * One review per completed ticket, submitted by the customer via the public
+ * link in their "your request is done" email (see customer-events.ts). Not
+ * gated by a login — verified the same way the public tracker is, by the
+ * (ticketNumber, email) pair only the real submitter should know.
+ *
+ * departmentId is a snapshot of ticket.departmentId at the moment the review
+ * was submitted, not a live relation lookup — a ticket's department can
+ * still change after completion (see forwardTicketToDepartment), and the
+ * review should stay attributed to whoever actually did the work being
+ * reviewed, not wherever the ticket happens to sit later.
+ */
+model Review {
+  id            String   @id @default(cuid())
+  ticketId      String   @unique
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  stakeholderId String
+  stakeholder   Stakeholder @relation(fields: [stakeholderId], references: [id])
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  rating        Int // 1-5
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  @@index([departmentId])
+  @@map("reviews")
 }
 
 model TicketComment {

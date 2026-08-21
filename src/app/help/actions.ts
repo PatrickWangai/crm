@@ -3,10 +3,13 @@
 import {
   publicSupportRequestSchema,
   trackRequestSchema,
+  submitReviewSchema,
   type PublicSupportFormState,
   type TrackRequestFormState,
+  type SubmitReviewFormState,
 } from "@/lib/validation/public-support";
 import { submitPublicSupportRequest, trackPublicSupportRequest } from "@/lib/services/public-support.service";
+import { submitCustomerReview } from "@/lib/services/review.service";
 import { logChatbotTranscript } from "@/lib/services/communication.service";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
@@ -134,4 +137,22 @@ export async function chatTrackTicketAction(ticketNumber: string, email: string)
   const result = await trackPublicSupportRequest(parsed.data.ticketNumber, parsed.data.email);
   if (!result) return { ok: false };
   return { ok: true, result };
+}
+
+export async function submitReviewAction(_prev: SubmitReviewFormState, formData: FormData): Promise<SubmitReviewFormState> {
+  if (!checkRateLimit("help-review", await getClientIp(), 10)) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const parsed = submitReviewSchema.safeParse({
+    ticketNumber: formData.get("ticketNumber"),
+    email: formData.get("email"),
+    rating: formData.get("rating"),
+    comment: formData.get("comment"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const result = await submitCustomerReview(parsed.data);
+  if (!result.ok) return { error: result.error };
+  return { success: true };
 }

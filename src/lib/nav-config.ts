@@ -23,6 +23,7 @@ import {
   Settings,
   MessagesSquare,
   HeartPulse,
+  Star,
 } from "lucide-react";
 
 export interface NavItem {
@@ -49,6 +50,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
       { label: "Reports & Analytics", href: "/reports", icon: BarChart3, permission: "reports.view" },
+      { label: "Customer Reviews", href: "/reviews", icon: Star, permission: "reviews.view_all" },
       { label: "Notifications", href: "/notifications", icon: Bell, permission: "notifications.view_own" },
       { label: "Tasks", href: "/tasks", icon: CheckSquare, permission: ["tasks.view_all", "tasks.view_own"] },
     ],

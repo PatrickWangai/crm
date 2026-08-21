@@ -39,6 +39,12 @@ function trackingUrl(ticketNumber: string, email: string): string {
   return `${APP_URL}/help?${params.toString()}`;
 }
 
+/** Deep-links into the review form (see help/review/page.tsx) with the same (ticketNumber, email) pairing — no separate token to manage. */
+function reviewUrl(ticketNumber: string, email: string): string {
+  const params = new URLSearchParams({ ticketNumber, email });
+  return `${APP_URL}/help/review?${params.toString()}`;
+}
+
 /**
  * Fires once, right after a ticket lands (staff-logged or public portal),
  * so the customer has an immediate confirmation with their reference number
@@ -54,7 +60,7 @@ export async function notifyCustomerReceived(ticket: TrackedTicket, stakeholder:
       `Hi ${stakeholder.firstName}, we've received your request`,
       `<p style="color:#475467; font-size:14px; line-height:1.6;">${ticket.subject}</p>${trackerHtml(1)}${deadlineHtml(ticket.dueAt)}`,
       ticket.ticketNumber,
-      trackingUrl(ticket.ticketNumber, stakeholder.email),
+      { url: trackingUrl(ticket.ticketNumber, stakeholder.email), label: "Track your request live" },
     ),
   });
 }
@@ -77,7 +83,9 @@ export async function notifyCustomerStageChanged(ticket: TrackedTicket, stakehol
       `Hi ${stakeholder.firstName}, ${done ? "your request is done" : "there's an update on your request"}`,
       `<p style="color:#475467; font-size:14px; line-height:1.6;">${ticket.subject}</p>${trackerHtml(stage)}${done ? "" : deadlineHtml(ticket.dueAt)}`,
       ticket.ticketNumber,
-      trackingUrl(ticket.ticketNumber, stakeholder.email),
+      done
+        ? { url: reviewUrl(ticket.ticketNumber, stakeholder.email), label: "Rate your experience" }
+        : { url: trackingUrl(ticket.ticketNumber, stakeholder.email), label: "Track your request live" },
     ),
   });
 }

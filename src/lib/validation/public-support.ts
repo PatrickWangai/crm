@@ -58,3 +58,24 @@ export interface PublicSupportFormState {
   /** Live tracking snapshot for the just-created ticket, so the submitter sees real status immediately without re-entering their reference number and email. */
   tracking?: PublicTicketStatus;
 }
+
+/**
+ * Reviews are only reachable via the link in the "your request is done"
+ * email, which already carries ticketNumber + email — same (ticketNumber,
+ * email) shared-secret pairing the public tracker uses, so no separate
+ * token/login is needed to prove this is the real submitter.
+ */
+export const submitReviewSchema = z.object({
+  ticketNumber: z.string().trim().min(1, "Missing reference number"),
+  email: z.string().trim().toLowerCase().email("Missing a valid email"),
+  rating: z.coerce.number().int().min(1, "Choose a star rating").max(5, "Choose a star rating"),
+  comment: z.string().trim().max(1000, "Keep it under 1000 characters").optional().or(z.literal("")),
+});
+
+export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;
+
+export interface SubmitReviewFormState {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+}

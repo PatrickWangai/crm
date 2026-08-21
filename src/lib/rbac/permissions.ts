@@ -31,6 +31,7 @@ export const MODULES = [
   "audit_logs",
   "settings",
   "integrations",
+  "reviews",
 ] as const;
 
 export type Module = (typeof MODULES)[number];
@@ -124,6 +125,7 @@ export const PERMISSIONS: PermissionDef[] = [
   p("audit_logs", "view", "View system audit logs"),
   p("settings", "manage", "Manage system settings"),
   p("integrations", "manage", "Manage external integrations"),
+  p("reviews", "view_all", "View customer reviews across all departments"),
 ];
 
 export const PERMISSION_CODES = PERMISSIONS.map((perm) => perm.code);
@@ -182,6 +184,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "employees.view_all",
     "audit_logs.view",
     "notifications.view_own",
+    // Customer reviews are a board-level oversight signal on service
+    // quality — same tier as audit_logs.view here, not a working-ticket
+    // permission.
+    "reviews.view_all",
   ],
   ceo: [
     "dashboard.view",
@@ -201,6 +207,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tasks.assign",
     "audit_logs.view",
     "notifications.view_own",
+    "reviews.view_all",
   ],
   management: [
     "dashboard.view",
