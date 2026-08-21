@@ -25,6 +25,7 @@ import {
   HeartPulse,
   Star,
   UserPlus,
+  Radio,
 } from "lucide-react";
 
 export interface NavItem {
@@ -89,6 +90,7 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: Ticket,
         permission: ["tickets.view_all", "tickets.view_own"],
       },
+      { label: "Live Activity", href: "/live-activity", icon: Radio, permission: "live_activity.view" },
     ],
   },
   {

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PublicSupportForm } from "@/components/support/public-support-form";
 import { TrackRequestForm } from "@/components/support/track-request-form";
 import { HelpChatbot } from "@/components/support/help-chatbot";
+import { PresenceTracker } from "@/components/support/presence-tracker";
 
 export const metadata = { title: "Help & Support — Masterways" };
 // No auth check on this route (it's public), so nothing else forces dynamic
@@ -85,6 +86,7 @@ export default async function HelpAndSupportPage({
       </main>
 
       {aiEnabled && <HelpChatbot supportEmail={supportEmail} />}
+      <PresenceTracker endpoint="/api/public/presence" source="crm" ticketNumber={initialTicketNumber} />
     </div>
   );
 }

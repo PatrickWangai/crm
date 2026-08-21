@@ -1078,3 +1078,22 @@ model CommunicationTemplate {
 
   @@map("communication_templates")
 }
+
+/// One row per anonymous browser session on a public help/support page
+/// (this app's own /help, or the standalone customer app), upserted by a
+/// client-side heartbeat. "Live" is derived at query time (lastSeenAt
+/// within the last ~60s), not stored — there's no separate online/offline
+/// flag to keep in sync.
+model HelpPageVisit {
+  id           String   @id @default(cuid())
+  sessionId    String   @unique
+  source       String
+  path         String
+  ticketNumber String?
+  pageViews    Int      @default(1)
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  @@index([lastSeenAt])
+  @@map("help_page_visits")
+}

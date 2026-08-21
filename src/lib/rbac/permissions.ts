@@ -32,6 +32,7 @@ export const MODULES = [
   "settings",
   "integrations",
   "reviews",
+  "live_activity",
 ] as const;
 
 export type Module = (typeof MODULES)[number];
@@ -127,6 +128,7 @@ export const PERMISSIONS: PermissionDef[] = [
   p("settings", "manage", "Manage system settings"),
   p("integrations", "manage", "Manage external integrations"),
   p("reviews", "view_all", "View customer reviews across all departments"),
+  p("live_activity", "view", "See live visitor activity on the public help/support pages"),
 ];
 
 export const PERMISSION_CODES = PERMISSIONS.map((perm) => perm.code);
@@ -263,6 +265,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "reports.view",
     "notifications.view_own",
     "users.manage_department",
+    // Live help-page visitor activity is Customer Care's own working view —
+    // not a general reporting permission, so it's granted here specifically
+    // rather than added to reports.view (which several other departments
+    // also hold).
+    "live_activity.view",
   ],
   finance: [
     "dashboard.view",

@@ -176,7 +176,14 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <CardTitle>Request details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <p className="whitespace-pre-wrap text-muted-foreground">{ticket.description}</p>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Subject</p>
+                <p className="font-medium">{ticket.subject}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Description</p>
+                <p className="whitespace-pre-wrap text-muted-foreground">{ticket.description}</p>
+              </div>
               <InfoRow icon={Mail} label="Stakeholder email" value={ticket.stakeholder.email ?? "—"} />
               <InfoRow icon={Phone} label="Stakeholder phone" value={ticket.stakeholder.phone ?? "—"} />
               <InfoRow icon={Building2} label="Business unit" value={ticket.businessUnit?.name ?? "—"} />
