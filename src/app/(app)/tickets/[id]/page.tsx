@@ -28,6 +28,7 @@ import { TicketWorkflowActions } from "@/components/tickets/ticket-workflow-acti
 import { ForwardDepartmentDialog } from "@/components/tickets/forward-department-dialog";
 import { RoutingCheckNote } from "@/components/tickets/routing-check";
 import { AssignTicketSelect } from "@/components/tickets/assign-ticket-select";
+import { NudgeTicketButton } from "@/components/tickets/nudge-ticket-button";
 import { TicketCommentSection } from "@/components/tickets/ticket-comment-section";
 import { SendCustomerEmailForm } from "@/components/tickets/send-customer-email-form";
 import { QuickContactLinks } from "@/components/tickets/quick-contact-links";
@@ -194,8 +195,9 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle>Assignment &amp; SLA</CardTitle>
+              {canAssign && ticket.dueAt && ticket.status !== "COMPLETED" && ticket.status !== "CLOSED" && <NudgeTicketButton ticketId={ticket.id} />}
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">

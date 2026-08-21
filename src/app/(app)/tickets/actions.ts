@@ -21,6 +21,7 @@ import {
   updateTicket,
   updateTicketStatus,
   checkSlaRisk,
+  nudgeTicket,
 } from "@/lib/services/ticket.service";
 import { logCommunication, sendTicketEmailToCustomer } from "@/lib/services/communication.service";
 import { deleteDocument, uploadDocument } from "@/lib/services/document.service";
@@ -233,6 +234,15 @@ export async function checkSlaRiskAction(): Promise<{ error?: string; flagged?: 
   try {
     const flagged = await checkSlaRisk();
     return { flagged };
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function nudgeTicketAction(ticketId: string): Promise<{ error?: string; notified?: number }> {
+  try {
+    const notified = await nudgeTicket(ticketId);
+    return { notified };
   } catch (err) {
     return { error: friendlyError(err) };
   }

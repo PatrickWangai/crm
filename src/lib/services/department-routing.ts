@@ -50,7 +50,7 @@ const CARE_DEPARTMENTS_BY_BUSINESS_UNIT: Record<string, { code: string; name: st
  * no business unit picked at all) — Customer Care only runs Real Estate
  * and SACCO teams, per how the company actually runs this.
  */
-function resolveCareDepartment(businessUnitCode?: string | null): { code: string; name: string } {
+export function resolveCareDepartment(businessUnitCode?: string | null): { code: string; name: string } {
   if (businessUnitCode && CARE_DEPARTMENTS_BY_BUSINESS_UNIT[businessUnitCode]) {
     return CARE_DEPARTMENTS_BY_BUSINESS_UNIT[businessUnitCode];
   }

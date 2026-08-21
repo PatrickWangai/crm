@@ -7,7 +7,7 @@ import { createNotification } from "@/lib/services/notification.service";
 import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded } from "@/lib/notifications/ticket-events";
 import { notifyCustomerReceived, notifyCustomerStageChanged } from "@/lib/notifications/customer-events";
 import { getSupportStage } from "@/lib/support-stage";
-import { CUSTOMER_FACING_DEPARTMENT_CODES } from "@/lib/services/department-routing";
+import { CUSTOMER_FACING_DEPARTMENT_CODES, resolveCareDepartment, getDepartmentMembers } from "@/lib/services/department-routing";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
 import { filterVisibleDocuments } from "@/lib/services/document.service";
@@ -385,51 +385,104 @@ export async function addTicketComment(id: string, comment: string, isInternal: 
   return record;
 }
 
+const SLA_RISK_THRESHOLD = 0.8;
+
 /**
- * Scans open tickets against their SLA due date and notifies the assignee when
- * at risk (past 75% of the allotted time) or breached. Intended for a scheduled
- * job; safe to call repeatedly — Communication/AuditLog aren't used to dedupe,
- * so this is meant to be triggered a few times a day, not on every request.
+ * Scans open tickets (assigned or not) against their SLA due date and
+ * notifies whoever should act when a ticket is at risk (past 80% of the
+ * allotted time) or breached. The relevant Customer Care team (Real Estate
+ * or SACCO, resolved from the ticket's business unit) is always notified
+ * alongside the assignee — whether it's their own department's ticket or
+ * another department's — so a near-breach request never slips through
+ * just because nobody happened to check that specific queue; an
+ * unassigned ticket notifies Customer Care alone, since there's no
+ * assignee. Intended for a scheduled job; safe to call repeatedly —
+ * Communication/AuditLog aren't used to dedupe, so this is meant to be
+ * triggered a few times a day, not on every request.
  */
 export async function checkSlaRisk() {
   await requireAnyPermission(["tickets.assign"]);
   if (!(await isWorkflowActive("ticket.sla_risk_check"))) return 0;
 
   const openTickets = await prisma.ticket.findMany({
-    where: { status: { notIn: ["COMPLETED", "CLOSED"] }, dueAt: { not: null }, assignedToId: { not: null } },
+    where: { status: { notIn: ["COMPLETED", "CLOSED"] }, dueAt: { not: null } },
   });
+
+  const businessUnitIds = Array.from(new Set(openTickets.map((t) => t.businessUnitId).filter((id): id is string => !!id)));
+  const businessUnits = businessUnitIds.length ? await prisma.businessUnit.findMany({ where: { id: { in: businessUnitIds } }, select: { id: true, code: true } }) : [];
+  const businessUnitCodeById = new Map(businessUnits.map((bu) => [bu.id, bu.code]));
+
+  const careTeamCache = new Map<string, { id: string }[]>();
+  async function getCareTeamMembers(businessUnitCode: string | null) {
+    const care = resolveCareDepartment(businessUnitCode);
+    if (!careTeamCache.has(care.code)) {
+      const dept = await prisma.department.findUnique({ where: { code: care.code }, select: { id: true } });
+      careTeamCache.set(care.code, dept ? await getDepartmentMembers(dept.id) : []);
+    }
+    return careTeamCache.get(care.code)!;
+  }
 
   const now = Date.now();
   let flagged = 0;
   for (const ticket of openTickets) {
-    if (!ticket.dueAt || !ticket.assignedToId) continue;
+    if (!ticket.dueAt) continue;
     const due = ticket.dueAt.getTime();
     const created = ticket.createdAt.getTime();
     const elapsedFraction = (now - created) / (due - created);
     const breached = due < now;
+    if (!breached && elapsedFraction < SLA_RISK_THRESHOLD) continue;
 
-    if (breached) {
-      await createNotification({
-        userId: ticket.assignedToId,
-        type: "SLA_BREACH",
-        title: "SLA breached",
-        message: `${ticket.ticketNumber}: ${ticket.subject}`,
-        relatedUrl: `/tickets/${ticket.id}`,
-      });
-      flagged += 1;
-    } else if (elapsedFraction >= 0.75) {
-      await createNotification({
-        userId: ticket.assignedToId,
-        type: "SLA_RISK",
-        title: "Ticket approaching SLA deadline",
-        message: `${ticket.ticketNumber}: ${ticket.subject}`,
-        relatedUrl: `/tickets/${ticket.id}`,
-      });
-      flagged += 1;
-    }
+    const businessUnitCode = ticket.businessUnitId ? (businessUnitCodeById.get(ticket.businessUnitId) ?? null) : null;
+    const careMembers = await getCareTeamMembers(businessUnitCode);
+    const recipientIds = new Set<string>(careMembers.map((m) => m.id));
+    if (ticket.assignedToId) recipientIds.add(ticket.assignedToId);
+
+    const type = breached ? "SLA_BREACH" : "SLA_RISK";
+    const title = breached ? "SLA breached" : "Ticket approaching SLA deadline (80%)";
+    const message = `${ticket.ticketNumber}: ${ticket.subject}`;
+
+    await Promise.all(Array.from(recipientIds).map((userId) => createNotification({ userId, type, title, message, relatedUrl: `/tickets/${ticket.id}` })));
+    flagged += 1;
   }
 
   return flagged;
+}
+
+/**
+ * Manual escalation — lets whoever noticed a ticket is close to its
+ * deadline (via the SLA-risk notification above, or just browsing) send an
+ * immediate reminder rather than waiting for the next periodic check.
+ * Targets the assignee if there is one, otherwise the whole department —
+ * an unassigned ticket needs someone to pick it up, not a reminder aimed
+ * at nobody.
+ */
+export async function nudgeTicket(id: string) {
+  const actor = await requireAnyPermission(["tickets.assign"]);
+  const ticket = await prisma.ticket.findUniqueOrThrow({ where: { id } });
+
+  const recipientIds = new Set<string>();
+  if (ticket.assignedToId) {
+    recipientIds.add(ticket.assignedToId);
+  } else if (ticket.departmentId) {
+    const members = await getDepartmentMembers(ticket.departmentId);
+    for (const m of members) recipientIds.add(m.id);
+  }
+  recipientIds.delete(actor.id);
+
+  await Promise.all(
+    Array.from(recipientIds).map((userId) =>
+      createNotification({
+        userId,
+        type: "SLA_RISK",
+        title: `Nudge from ${actor.firstName} ${actor.lastName}`,
+        message: `${ticket.ticketNumber}: ${ticket.subject} — please check on this, it's close to its SLA deadline.`,
+        relatedUrl: `/tickets/${id}`,
+      }),
+    ),
+  );
+
+  await recordAudit({ userId: actor.id, action: "ticket.nudged", entityType: "Ticket", entityId: id });
+  return recipientIds.size;
 }
 
 export async function deleteTicket(id: string) {

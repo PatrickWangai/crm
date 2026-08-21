@@ -17,7 +17,7 @@ export function CheckSlaRiskButton() {
         onClick={() =>
           startTransition(async () => {
             const result = await checkSlaRiskAction();
-            setMessage(result.error ?? `Notified assignees on ${result.flagged ?? 0} at-risk/breached ticket(s).`);
+            setMessage(result.error ?? `Notified Customer Care and assignees on ${result.flagged ?? 0} at-risk/breached ticket(s).`);
           })
         }
       >
