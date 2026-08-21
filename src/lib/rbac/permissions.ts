@@ -283,6 +283,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tickets.view_own",
     "tickets.assign",
     "tickets.update",
+    // Every operational role in an active department can add teammates now,
+    // not just the head — DEPARTMENT_HEAD_ROLE in department-team-roles.ts
+    // still stops Finance Officer from minting a new CFO specifically.
+    "users.manage_department",
   ],
   cfo: [
     "dashboard.view",
@@ -353,8 +357,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tasks.assign",
     "reports.view",
     "notifications.view_own",
-    // Senior Property Manager is Property Management's head — can add the
-    // department's other three roles (see department-team-roles.ts).
+    // Every operational Property role can add teammates now, not just the
+    // head — DEPARTMENT_HEAD_ROLE in department-team-roles.ts still stops
+    // the other three from minting a new Senior Property Manager.
     "users.manage_department",
   ],
   "regional-property-coordinator": [
@@ -373,6 +378,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "notifications.view_own",
     "communications.view_own",
     "communications.create",
+    "users.manage_department",
   ],
   "regional-manager": [
     "dashboard.view",
@@ -387,6 +393,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "reports.view",
     "notifications.view_own",
     "communications.view_own",
+    "users.manage_department",
   ],
   "assistant-property-manager": [
     "dashboard.view",
@@ -411,6 +418,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tickets.view_own",
     "tickets.assign",
     "tickets.update",
+    "users.manage_department",
   ],
   "sacco-sales-marketing": BASE_SALES,
   "insurance-sales-marketing": BASE_SALES,

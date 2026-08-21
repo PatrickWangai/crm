@@ -18,3 +18,15 @@ export const DEPARTMENT_TEAM_ROLES: Record<string, string[]> = {
   PROPERTY: ["property-manager", "regional-property-coordinator", "regional-manager", "assistant-property-manager"],
   SALES: ["sales-marketing", "sacco-sales-marketing", "insurance-sales-marketing"],
 };
+
+/**
+ * The one role per department (if any) that only an existing holder of that
+ * same role can grant to a new teammate — stops a subordinate from minting
+ * a new head-level account (e.g. a Finance Officer creating another CFO).
+ * Every other role listed in DEPARTMENT_TEAM_ROLES is assignable by anyone
+ * with users.manage_department in that department, head or not.
+ */
+export const DEPARTMENT_HEAD_ROLE: Record<string, string | undefined> = {
+  FIN: "cfo",
+  PROPERTY: "property-manager",
+};
