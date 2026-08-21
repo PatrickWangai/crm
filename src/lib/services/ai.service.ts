@@ -215,9 +215,9 @@ export function suggestTicketReply(ticket: TicketForReply): { text: string } {
 
   if (ticket.latestPublicComment) {
     body = `Thank you for the update. We're continuing to work on "${ticket.subject}" and will follow up as soon as there's progress to share.`;
-  } else if (ticket.category === "Billing Inquiry") {
+  } else if (ticket.category === "Finance") {
     body = `Thank you for reaching out about "${ticket.subject}". We're reviewing your account and will get back to you with a clear breakdown shortly.`;
-  } else if (ticket.category === "Maintenance Request") {
+  } else if (ticket.category === "Property Management") {
     body = `Thank you for reporting this. We've logged "${ticket.subject}" and a technician will be assigned ${ticket.priority === "URGENT" || ticket.priority === "HIGH" ? "as a priority" : "shortly"}.`;
   } else if (ticket.category === "Complaint") {
     body = `We're sorry to hear about this and take it seriously. We're looking into "${ticket.subject}" and will update you with next steps soon.`;

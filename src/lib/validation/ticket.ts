@@ -1,18 +1,13 @@
 import { z } from "zod";
 
-export const TICKET_CATEGORIES = [
-  "Billing Inquiry",
-  "Maintenance Request",
-  "Sales & Marketing",
-  "HR & Administration",
-  "Complaint",
-  "General Inquiry",
-  "Service Request",
-  "Technical Support",
-  "Account Update",
-  "Other",
-  "Don't Know",
-] as const;
+// Each option (other than Complaint and Don't Know) names the department
+// it goes to directly, rather than an abstract category the customer has
+// to guess the meaning of. Complaint keeps its own value (not folded into
+// Customer Care) since it drives its own report (report.service.ts) and
+// a distinct reply tone (ai.service.ts) — General Inquiry/Service Request/
+// Account Update/Other collapsed into "Customer Care" since none of those
+// had any distinct handling of their own.
+export const TICKET_CATEGORIES = ["Finance", "Property Management", "Sales & Marketing", "HR & Administration", "Technical Support", "Complaint", "Customer Care", "Don't Know"] as const;
 
 export const TICKET_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 

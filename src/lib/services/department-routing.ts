@@ -7,15 +7,15 @@ type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 /**
  * Every category a customer can pick on the public "which service is this
  * about" form maps to exactly one department — this is the actual routing
- * decision, made the moment a request comes in. Billing, Maintenance, Sales
- * & Marketing and HR & Administration go to their specialist departments;
- * Technical Support goes to ICT; anything without an obvious specialist home
- * (Complaint, General Inquiry, Service Request, Account Update, Other) goes
- * to Customer Care, who triage and reassign by hand if a specific one turns
- * out to belong elsewhere. Deliberately excludes departments a customer has
- * no business selecting directly — Board, Executive, Internal Audit, SACCO
- * Credit Committee — those are internal oversight, not customer-facing
- * services.
+ * decision, made the moment a request comes in. Each option names its
+ * department directly (Finance, Property Management, Sales & Marketing,
+ * HR & Administration, Technical Support -> ICT); Complaint and Customer
+ * Care (the catch-all for anything without an obvious specialist home) and
+ * Don't Know all go to Customer Care, who triage and reassign by hand if a
+ * specific one turns out to belong elsewhere. Deliberately excludes
+ * departments a customer has no business selecting directly — Board,
+ * Executive, Internal Audit, SACCO Credit Committee — those are internal
+ * oversight, not customer-facing services.
  *
  * The "CARE" entries below are a placeholder, not a real Department.code —
  * resolveCareDepartmentCode() below picks the actual business-unit-specific
@@ -26,16 +26,13 @@ type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 const CARE_PLACEHOLDER = "CARE";
 
 const CATEGORY_DEPARTMENTS: Record<TicketCategory, { code: string; name: string }> = {
-  "Billing Inquiry": { code: "FIN", name: "Finance" },
-  "Maintenance Request": { code: "PROPERTY", name: "Property Management" },
+  Finance: { code: "FIN", name: "Finance" },
+  "Property Management": { code: "PROPERTY", name: "Property Management" },
   "Sales & Marketing": { code: "SALES", name: "Sales & Marketing" },
   "HR & Administration": { code: "HR", name: "HR & Administration" },
   "Technical Support": { code: "ICT", name: "ICT" },
   Complaint: { code: CARE_PLACEHOLDER, name: "Customer Care" },
-  "General Inquiry": { code: CARE_PLACEHOLDER, name: "Customer Care" },
-  "Service Request": { code: CARE_PLACEHOLDER, name: "Customer Care" },
-  "Account Update": { code: CARE_PLACEHOLDER, name: "Customer Care" },
-  Other: { code: CARE_PLACEHOLDER, name: "Customer Care" },
+  "Customer Care": { code: CARE_PLACEHOLDER, name: "Customer Care" },
   "Don't Know": { code: CARE_PLACEHOLDER, name: "Customer Care" },
 };
 
@@ -103,7 +100,7 @@ export interface DepartmentSuggestion {
  * regardless of business unit.
  */
 export function suggestDepartment(category: string, subject: string, description: string, businessUnitCode?: string | null): DepartmentSuggestion {
-  const raw = CATEGORY_DEPARTMENTS[category as TicketCategory] ?? CATEGORY_DEPARTMENTS.Other;
+  const raw = CATEGORY_DEPARTMENTS[category as TicketCategory] ?? CATEGORY_DEPARTMENTS["Customer Care"];
   const department = raw.code === CARE_PLACEHOLDER ? resolveCareDepartment(businessUnitCode) : raw;
   const text = `${subject} ${description}`.toLowerCase();
   const hint = WORDING_HINTS.find((h) => h.departmentCode !== department.code && h.keywords.some((k) => text.includes(k)));

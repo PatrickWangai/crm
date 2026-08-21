@@ -161,7 +161,7 @@ export function HelpChatbot({ supportEmail }: { supportEmail: string }) {
           lastName: draft.current.lastName ?? "Visitor",
           email: draft.current.email,
           phone: draft.current.phone,
-          category: draft.current.category ?? "General Inquiry",
+          category: draft.current.category ?? "Customer Care",
           description: draft.current.description ?? text,
           transcript: messages.map((m) => ({ from: m.from, text: m.text })),
         });
