@@ -1,36 +1,48 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, X } from "lucide-react";
+import { Send, Loader2, X, Ticket as TicketIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreateTicketFromVisitorForm } from "@/components/live-activity/create-ticket-from-visitor-form";
 import type { LiveChatMessage } from "@/lib/validation/public-support";
+import type { CreateTicketFromVisitorInput } from "@/lib/services/live-chat.service";
 
 const POLL_MS = 8_000;
 
-/** Staff-side of the live chat opened from a Live Activity row — mirrors LiveChatThread's customer-side layout, but authenticated via the normal staff session instead of a (ticketNumber, email) pair. */
+/**
+ * Staff-side of a live chat opened from a Live Activity row — one panel,
+ * two modes: an existing ticket's thread (title carries the ticket number,
+ * no "Create Ticket" section) or a not-yet-ticketed visitor's thread
+ * (title says "Visitor", a "Create Ticket" section is offered). The
+ * caller (live-activity-view.tsx) binds fetchThread/sendMessage to
+ * whichever backing (ticketId or sessionId) is relevant — this component
+ * doesn't know or care which.
+ */
 export function StaffChatPanel({
-  ticketId,
-  ticketNumber,
+  title,
   onClose,
   fetchThread,
   sendMessage,
+  createTicket,
 }: {
-  ticketId: string;
-  ticketNumber: string;
+  title: string;
   onClose: () => void;
-  fetchThread: (ticketId: string) => Promise<LiveChatMessage[]>;
-  sendMessage: (ticketId: string, content: string) => Promise<LiveChatMessage>;
+  fetchThread: () => Promise<LiveChatMessage[]>;
+  sendMessage: (content: string) => Promise<LiveChatMessage>;
+  createTicket?: (input: CreateTicketFromVisitorInput) => Promise<{ error?: string; ticketNumber?: string }>;
 }) {
   const [messages, setMessages] = useState<LiveChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [showCreateTicket, setShowCreateTicket] = useState(false);
+  const [createdTicketNumber, setCreatedTicketNumber] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function tick() {
-      const result = await fetchThread(ticketId).catch(() => null);
+      const result = await fetchThread().catch(() => null);
       if (!cancelled && result) setMessages(result);
     }
     void tick();
@@ -39,7 +51,8 @@ export function StaffChatPanel({
       cancelled = true;
       clearInterval(id);
     };
-  }, [fetchThread, ticketId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchThread is a fresh closure each render by design (binds the current ticketId/sessionId); re-running the interval setup on every render would restart polling constantly
+  }, []);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -50,7 +63,7 @@ export function StaffChatPanel({
     const content = input.trim();
     if (!content || sending) return;
     setSending(true);
-    const message = await sendMessage(ticketId, content).catch(() => null);
+    const message = await sendMessage(content).catch(() => null);
     setSending(false);
     if (message) {
       setInput("");
@@ -61,7 +74,7 @@ export function StaffChatPanel({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-sm">Chat — {ticketNumber}</CardTitle>
+        <CardTitle className="text-sm">Chat — {title}</CardTitle>
         <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-secondary" aria-label="Close chat">
           <X className="size-4" />
         </button>
@@ -95,6 +108,23 @@ export function StaffChatPanel({
             {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </Button>
         </form>
+
+        {createTicket && !createdTicketNumber && (
+          <div className="border-t border-border pt-2">
+            {!showCreateTicket ? (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowCreateTicket(true)}>
+                <TicketIcon className="size-3.5" /> Create ticket from this conversation
+              </Button>
+            ) : (
+              <CreateTicketFromVisitorForm
+                onSubmit={createTicket}
+                onCancel={() => setShowCreateTicket(false)}
+                onCreated={(ticketNumber) => setCreatedTicketNumber(ticketNumber)}
+              />
+            )}
+          </div>
+        )}
+        {createdTicketNumber && <p className="border-t border-border pt-2 text-sm text-success">Created {createdTicketNumber} — this conversation now lives on that ticket.</p>}
       </CardContent>
     </Card>
   );

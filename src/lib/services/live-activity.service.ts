@@ -18,8 +18,11 @@ export interface LiveActivitySnapshot {
   visitorsTodayCount: number;
   pageViewsToday: number;
   chatsToday: number;
+  /** Concurrent-visitor count in 5-minute buckets over the last hour, derived from each visit's firstSeenAt/lastSeenAt span — not a stored time series (there isn't one), so this is an approximation of who was active in each window, not a true per-second count. */
+  visitorTimeline: Array<{ label: string; count: number }>;
   recent: Array<{
     id: string;
+    sessionId: string;
     source: string;
     path: string;
     ticketNumber: string | null;
@@ -31,7 +34,10 @@ export interface LiveActivitySnapshot {
   }>;
 }
 
-const EMPTY_SNAPSHOT: LiveActivitySnapshot = { liveVisitorCount: 0, visitorsTodayCount: 0, pageViewsToday: 0, chatsToday: 0, recent: [] };
+const EMPTY_SNAPSHOT: LiveActivitySnapshot = { liveVisitorCount: 0, visitorsTodayCount: 0, pageViewsToday: 0, chatsToday: 0, visitorTimeline: [], recent: [] };
+
+const TIMELINE_BUCKET_MS = 5 * 60_000;
+const TIMELINE_BUCKETS = 12; // last 60 minutes
 
 /**
  * Every customer-facing department gets this view now, not just Customer
@@ -76,13 +82,23 @@ export async function getLiveActivitySnapshot(): Promise<LiveActivitySnapshot> {
 
   const scoped = candidateVisits.filter((v) => (v.ticketNumber ? ticketByNumber.get(v.ticketNumber)?.departmentId === departmentId : isCareTeam));
 
+  const visitorTimeline: LiveActivitySnapshot["visitorTimeline"] = [];
+  for (let i = TIMELINE_BUCKETS - 1; i >= 0; i--) {
+    const bucketEnd = new Date(now.getTime() - i * TIMELINE_BUCKET_MS);
+    const bucketStart = new Date(bucketEnd.getTime() - TIMELINE_BUCKET_MS);
+    const count = scoped.filter((v) => v.firstSeenAt <= bucketEnd && v.lastSeenAt >= bucketStart).length;
+    visitorTimeline.push({ label: bucketEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), count });
+  }
+
   return {
     liveVisitorCount: scoped.filter((v) => v.lastSeenAt >= liveSince).length,
     visitorsTodayCount: scoped.length,
     pageViewsToday: scoped.reduce((sum, v) => sum + v.pageViews, 0),
     chatsToday,
+    visitorTimeline,
     recent: scoped.slice(0, 20).map((v) => ({
       id: v.id,
+      sessionId: v.sessionId,
       source: v.source,
       path: v.path,
       ticketNumber: v.ticketNumber,

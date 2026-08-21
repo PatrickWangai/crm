@@ -8,10 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { StaffChatPanel } from "@/components/live-activity/staff-chat-panel";
+import { VisitorTimelineChart } from "@/components/live-activity/visitor-timeline-chart";
 import type { LiveActivitySnapshot } from "@/lib/services/live-activity.service";
 import type { LiveChatMessage } from "@/lib/validation/public-support";
+import type { CreateTicketFromVisitorInput } from "@/lib/services/live-chat.service";
+import type { CreateTicketFromVisitorState } from "@/app/(app)/live-activity/actions";
 
 const POLL_MS = 30_000;
+
+type ChatTarget = { type: "ticket"; ticketId: string; ticketNumber: string } | { type: "visitor"; sessionId: string };
 
 function LiveDot() {
   return (
@@ -30,14 +35,20 @@ export function LiveActivityView({
   refreshAction,
   fetchThread,
   sendMessage,
+  fetchVisitorThread,
+  sendVisitorMessage,
+  createTicketFromVisitor,
 }: {
   initial: LiveActivitySnapshot;
   refreshAction: () => Promise<LiveActivitySnapshot>;
   fetchThread: (ticketId: string) => Promise<LiveChatMessage[]>;
   sendMessage: (ticketId: string, content: string) => Promise<LiveChatMessage>;
+  fetchVisitorThread: (sessionId: string) => Promise<LiveChatMessage[]>;
+  sendVisitorMessage: (sessionId: string, content: string) => Promise<LiveChatMessage>;
+  createTicketFromVisitor: (sessionId: string, input: CreateTicketFromVisitorInput) => Promise<CreateTicketFromVisitorState>;
 }) {
   const [snapshot, setSnapshot] = useState(initial);
-  const [openChat, setOpenChat] = useState<{ ticketId: string; ticketNumber: string } | null>(null);
+  const [openChat, setOpenChat] = useState<ChatTarget | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -50,6 +61,18 @@ export function LiveActivityView({
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Radio className="size-4 text-success" /> Live visitors
+          </CardTitle>
+          <CardDescription>Concurrent visitors on the help page, last hour.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <VisitorTimelineChart data={snapshot.visitorTimeline} />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-4">
         <StatCard label="Live visitors" value={snapshot.liveVisitorCount} icon={Radio} hint="on the help page right now" tone="success" />
         <StatCard label="Visitors today" value={snapshot.visitorsTodayCount} icon={Users} />
@@ -60,7 +83,7 @@ export function LiveActivityView({
       <Card>
         <CardHeader>
           <CardTitle>Recent activity</CardTitle>
-          <CardDescription>Every visitor who&apos;s touched the help page recently, refreshed every 30s.</CardDescription>
+          <CardDescription>Every visitor who&apos;s touched the help page recently, refreshed every 30s. Chat with anyone — before or after they have a ticket.</CardDescription>
         </CardHeader>
         <CardContent>
           {snapshot.recent.length === 0 ? (
@@ -91,16 +114,18 @@ export function LiveActivityView({
                       <td className="py-2 pr-4 text-xs text-muted-foreground">{formatDistanceToNow(new Date(v.firstSeenAt), { addSuffix: true })}</td>
                       <td className="py-2 text-xs text-muted-foreground">{formatDistanceToNow(new Date(v.lastSeenAt), { addSuffix: true })}</td>
                       <td className="py-2 text-right">
-                        {v.ticketId && v.ticketNumber && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 gap-1 text-xs"
-                            onClick={() => setOpenChat({ ticketId: v.ticketId!, ticketNumber: v.ticketNumber! })}
-                          >
-                            <MessageCircle className="size-3.5" /> Chat
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() =>
+                            setOpenChat(
+                              v.ticketId && v.ticketNumber ? { type: "ticket", ticketId: v.ticketId, ticketNumber: v.ticketNumber } : { type: "visitor", sessionId: v.sessionId },
+                            )
+                          }
+                        >
+                          <MessageCircle className="size-3.5" /> Chat
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -111,15 +136,25 @@ export function LiveActivityView({
         </CardContent>
       </Card>
 
-      {openChat && (
-        <StaffChatPanel
-          ticketId={openChat.ticketId}
-          ticketNumber={openChat.ticketNumber}
-          onClose={() => setOpenChat(null)}
-          fetchThread={fetchThread}
-          sendMessage={sendMessage}
-        />
-      )}
+      {openChat &&
+        (openChat.type === "ticket" ? (
+          <StaffChatPanel
+            key={`ticket-${openChat.ticketId}`}
+            title={openChat.ticketNumber}
+            onClose={() => setOpenChat(null)}
+            fetchThread={() => fetchThread(openChat.ticketId)}
+            sendMessage={(content) => sendMessage(openChat.ticketId, content)}
+          />
+        ) : (
+          <StaffChatPanel
+            key={`visitor-${openChat.sessionId}`}
+            title="Visitor (no ticket yet)"
+            onClose={() => setOpenChat(null)}
+            fetchThread={() => fetchVisitorThread(openChat.sessionId)}
+            sendMessage={(content) => sendVisitorMessage(openChat.sessionId, content)}
+            createTicket={(input) => createTicketFromVisitor(openChat.sessionId, input)}
+          />
+        ))}
     </div>
   );
 }

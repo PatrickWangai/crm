@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { createNotification } from "@/lib/services/notification.service";
-import { getDepartmentMembers } from "@/lib/services/department-routing";
+import { getDepartmentMembers, resolveCareDepartment } from "@/lib/services/department-routing";
 import { sendEmail } from "@/lib/email/resend";
 import { emailShell } from "@/lib/email/templates";
 import type { SendCustomerChatMessageInput, LiveChatMessage } from "@/lib/validation/public-support";
@@ -117,4 +117,118 @@ export async function sendCustomerLiveChatMessage(input: SendCustomerChatMessage
   }
 
   return toThreadMessage(message);
+}
+
+/**
+ * Pre-ticket live chat — talking to a visitor who's on the help page right
+ * now but hasn't created a ticket yet (or ever will). Keyed by the same
+ * anonymous sessionId presence-tracker.tsx already generates, not a ticket,
+ * since one doesn't exist yet. Reuses the same LiveChatMessage shape as the
+ * ticket-based thread above (visitor -> "customer") so the UI components
+ * don't need a parallel type.
+ */
+
+function toVisitorThreadMessage(row: { id: string; from: string; content: string; createdAt: Date }): LiveChatMessage {
+  return { id: row.id, from: row.from === "visitor" ? "customer" : "staff", content: row.content, occurredAt: row.createdAt.toISOString() };
+}
+
+export async function listStaffVisitorThread(sessionId: string): Promise<LiveChatMessage[]> {
+  await requireAnyPermission(["live_activity.view"]);
+  const rows = await prisma.visitorMessage.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" } });
+  return rows.map(toVisitorThreadMessage);
+}
+
+export async function sendStaffMessageToVisitor(sessionId: string, content: string): Promise<LiveChatMessage> {
+  await requireAnyPermission(["live_activity.view"]);
+  const message = await prisma.visitorMessage.create({ data: { sessionId, from: "staff", content: content.trim() } });
+  return toVisitorThreadMessage(message);
+}
+
+export async function listPublicVisitorThread(sessionId: string): Promise<LiveChatMessage[]> {
+  const rows = await prisma.visitorMessage.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" } });
+  return rows.map(toVisitorThreadMessage);
+}
+
+/** Visitor sends a message before any ticket exists — notifies Customer Care – Real Estate, the same default front desk anonymous/undifferentiated traffic already lands on elsewhere (see resolveCareDepartment). */
+export async function sendPublicVisitorMessage(sessionId: string, content: string): Promise<LiveChatMessage> {
+  const message = await prisma.visitorMessage.create({ data: { sessionId, from: "visitor", content } });
+
+  const care = resolveCareDepartment(null);
+  const careDept = await prisma.department.findUnique({ where: { code: care.code }, select: { id: true } });
+  if (careDept) {
+    const members = await getDepartmentMembers(careDept.id);
+    await Promise.all(
+      members.map((m) =>
+        createNotification({
+          userId: m.id,
+          type: "SYSTEM",
+          title: "A visitor is messaging on the help page",
+          message: content.length > 80 ? `${content.slice(0, 80)}…` : content,
+          relatedUrl: "/live-activity",
+        }),
+      ),
+    );
+  }
+
+  return toVisitorThreadMessage(message);
+}
+
+export interface CreateTicketFromVisitorInput {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  category: string;
+  subject: string;
+  description: string;
+}
+
+/**
+ * "Create Ticket" from a live pre-ticket conversation — staff fills in
+ * whatever contact details the visitor has given so far (they may not have
+ * shared any yet). Carries the existing VisitorMessage transcript over into
+ * the new ticket's Communication log (as LIVE_CHAT rows, same channel the
+ * post-ticket thread already uses) so nothing is lost, then points the
+ * visitor's HelpPageVisit row at the new ticket — from here on, their
+ * conversation continues through the normal ticket-based live chat.
+ */
+export async function createTicketFromVisitor(sessionId: string, input: CreateTicketFromVisitorInput) {
+  const actor = await requireAnyPermission(["tickets.assign"]);
+  const { submitPublicSupportRequest } = await import("@/lib/services/public-support.service");
+  const { publicSupportRequestSchema } = await import("@/lib/validation/public-support");
+
+  const parsed = publicSupportRequestSchema.parse({
+    firstName: input.firstName,
+    lastName: input.lastName,
+    email: input.email?.trim() || "",
+    phone: input.phone?.trim() || "",
+    businessUnitId: "",
+    category: input.category,
+    subject: input.subject,
+    description: input.description,
+  });
+
+  const result = await submitPublicSupportRequest(parsed);
+
+  const transcript = await prisma.visitorMessage.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" } });
+  const ticket = await prisma.ticket.findUniqueOrThrow({ where: { id: result.ticketId }, select: { stakeholderId: true } });
+
+  if (transcript.length > 0) {
+    await prisma.communication.createMany({
+      data: transcript.map((m) => ({
+        channel: "LIVE_CHAT" as const,
+        direction: m.from === "visitor" ? ("INBOUND" as const) : ("OUTBOUND" as const),
+        content: m.content,
+        staffId: m.from === "staff" ? actor.id : undefined,
+        stakeholderId: ticket.stakeholderId,
+        relatedTicketId: result.ticketId,
+        occurredAt: m.createdAt,
+      })),
+    });
+    await prisma.visitorMessage.deleteMany({ where: { sessionId } });
+  }
+
+  await prisma.helpPageVisit.updateMany({ where: { sessionId }, data: { ticketNumber: result.ticketNumber } });
+
+  return result;
 }

@@ -1144,3 +1144,21 @@ model HelpPageVisit {
   @@index([lastSeenAt])
   @@map("help_page_visits")
 }
+
+/// Live chat with a visitor before any ticket exists yet — keyed by the same
+/// anonymous sessionId as HelpPageVisit (not a real FK: the visit row can be
+/// pruned/reused independently of the conversation history). Once staff
+/// creates a real ticket from a conversation, further messages move to the
+/// ticket-based LIVE_CHAT Communication channel instead — this table is
+/// specifically the pre-ticket phase, matching the reference "Create Ticket"
+/// action sitting at the end of a transcript, not the start.
+model VisitorMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  from      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("visitor_messages")
+}
