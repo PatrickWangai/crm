@@ -11,12 +11,16 @@ import { submitPublicSupportRequestAction, chatTrackTicketAction } from "@/app/h
 import { TICKET_CATEGORIES } from "@/lib/validation/ticket";
 import { classifyTicket } from "@/lib/ai/classify-ticket";
 import { TrackingResultCard } from "@/components/support/tracking-result-card";
+import { PresenceTracker } from "@/components/support/presence-tracker";
 import type { PublicSupportFormState, PublicTicketStatus } from "@/lib/validation/public-support";
 
 const initialState: PublicSupportFormState = {};
 
 /** Survives navigating away and back (or a refresh) within the same tab — cleared when the tab closes. Just this submitter's own data on their own device. */
 const STORAGE_KEY = "masterways-help-last-request";
+
+/** Radix Select needs a non-empty value for every item — this stands in for businessUnitId="" ("General / not sure"). */
+const GENERAL_BUSINESS_UNIT = "__general__";
 
 interface StoredResult {
   ticketNumber: string;
@@ -159,7 +163,10 @@ export function PublicSupportForm({
             email={activeResult.contactEmail}
             refreshAction={chatTrackTicketAction}
             onRefresh={handleTrackingRefresh}
+            chatApiBase=""
           />
+          {/* The page-level tracker (in help/page.tsx) only knows a ticketNumber via a URL deep-link — a fresh submission here never navigates, so without this the live-chat "Chat" button on staff's Live Activity view would have nothing to find. */}
+          <PresenceTracker endpoint="/api/public/presence" source="crm" ticketNumber={activeResult.ticketNumber} />
           <Button variant="outline" className="w-full sm:w-auto" onClick={startNewRequest}>
             Submit another request
           </Button>
@@ -207,11 +214,12 @@ export function PublicSupportForm({
       <div className="space-y-1.5">
         <Label htmlFor="businessUnitId">Which service is this about?</Label>
         <input type="hidden" name="businessUnitId" value={businessUnitId} />
-        <Select value={businessUnitId} onValueChange={setBusinessUnitId}>
+        <Select value={businessUnitId || GENERAL_BUSINESS_UNIT} onValueChange={(v) => setBusinessUnitId(v === GENERAL_BUSINESS_UNIT ? "" : v)}>
           <SelectTrigger id="businessUnitId">
-            <SelectValue placeholder="Not sure / general" />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={GENERAL_BUSINESS_UNIT}>General / not sure</SelectItem>
             {businessUnits.map((bu) => (
               <SelectItem key={bu.id} value={bu.id}>
                 {bu.name}

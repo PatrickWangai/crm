@@ -26,8 +26,9 @@ async function nextStakeholderCode(): Promise<string> {
 }
 
 /** Unauthenticated lookup for the public submission form's business-unit picker — no sensitive data. */
+/** MGC (corporate/shared) excluded — it's an internal grouping, not a service a customer picks as "theirs"; a customer who doesn't know picks the explicit "General / not sure" option in the UI instead (an empty businessUnitId), which is exactly what MGC would otherwise be a confusing stand-in for. */
 export async function listPublicBusinessUnits() {
-  return prisma.businessUnit.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, code: true } });
+  return prisma.businessUnit.findMany({ where: { code: { not: "MGC" } }, orderBy: { name: "asc" }, select: { id: true, name: true, code: true } });
 }
 
 /**
@@ -40,7 +41,6 @@ function buildPublicTicketStatus(ticket: {
   ticketNumber: string;
   subject: string;
   category: string;
-  priority: string;
   status: string;
   businessUnit: { name: string } | null;
   createdAt: Date;
@@ -53,7 +53,6 @@ function buildPublicTicketStatus(ticket: {
     ticketNumber: ticket.ticketNumber,
     subject: ticket.subject,
     category: ticket.category,
-    priority: ticket.priority,
     status: ticket.status,
     stage,
     stageLabel: label,
@@ -116,9 +115,13 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
 
   const sla = await pickSlaForTicket(priority, businessUnitId);
 
+  const businessUnit = businessUnitId ? await prisma.businessUnit.findUnique({ where: { id: businessUnitId }, select: { code: true } }) : null;
+
   // Every category routes to exactly one department (see suggestDepartment) —
   // this is the actual forwarding decision, made the moment the request lands.
-  const { department } = suggestDepartment(input.category, input.subject, input.description);
+  // For categories that land in Customer Care, the business unit picks which
+  // of the three CC teams (real estate / SACCO / insurance).
+  const { department } = suggestDepartment(input.category, input.subject, input.description, businessUnit?.code);
   const routedDepartment = await prisma.department.findFirst({ where: { code: department.code } });
 
   const ticket = await prisma.ticket.create({

@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { requireAnyPermissionOrRedirect, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { getLeadDetail } from "@/lib/services/lead.service";
-import { listBusinessUnitOptions, listDepartmentOptions, listPropertyOptions, listUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
+import { listBusinessUnitOptions, listDepartmentOptions, listTicketDepartmentOptions, listPropertyOptions, listUnitOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { isAiAssistantEnabled, suggestNextActionForLead } from "@/lib/services/ai.service";
 import { AiSuggestionCard } from "@/components/leads/ai-suggestion-card";
 import { logLeadCommunicationAction, uploadLeadDocumentAction, deleteLeadDocumentAction, createLeadTaskAction } from "@/app/(app)/leads/actions";
@@ -19,6 +19,7 @@ import { DeleteLeadButton } from "@/components/leads/delete-lead-button";
 import { LeadStatusControl } from "@/components/leads/lead-status-control";
 import { ClaimLeadButton } from "@/components/leads/claim-lead-button";
 import { AssignLeadSelect } from "@/components/leads/assign-lead-select";
+import { AssignLeadDepartmentSelect } from "@/components/leads/assign-lead-department-select";
 import { CreateOpportunityDialog } from "@/components/leads/create-opportunity-dialog";
 import { OpportunityCard } from "@/components/leads/opportunity-card";
 import { LogCommunicationForm } from "@/components/communications/log-communication-form";
@@ -78,15 +79,17 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   let businessUnits: Awaited<ReturnType<typeof listBusinessUnitOptions>>;
   let staff: Awaited<ReturnType<typeof listUserOptions>>;
   let departments: Awaited<ReturnType<typeof listDepartmentOptions>>;
+  let assignableDepartments: Awaited<ReturnType<typeof listTicketDepartmentOptions>>;
   let properties: Awaited<ReturnType<typeof listPropertyOptions>>;
   let units: Awaited<ReturnType<typeof listUnitOptions>>;
   let aiEnabled: boolean;
   try {
-    [lead, businessUnits, staff, departments, properties, units, aiEnabled] = await Promise.all([
+    [lead, businessUnits, staff, departments, assignableDepartments, properties, units, aiEnabled] = await Promise.all([
       getLeadDetail(id),
       listBusinessUnitOptions(),
       listUserOptions(),
       listDepartmentOptions(),
+      listTicketDepartmentOptions(),
       listPropertyOptions(),
       listUnitOptions(),
       isAiAssistantEnabled(),
@@ -210,6 +213,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   <AssignLeadSelect leadId={lead.id} staff={staff} currentAssigneeId={lead.assignedToId} />
                 ) : (
                   <span className="font-medium">{lead.assignedTo ? `${lead.assignedTo.firstName} ${lead.assignedTo.lastName}` : "Unassigned"}</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Building2 className="size-4" /> Department
+                </span>
+                {canAssign ? (
+                  <AssignLeadDepartmentSelect leadId={lead.id} departments={assignableDepartments} currentDepartmentId={lead.departmentId} />
+                ) : (
+                  <span className="font-medium">{lead.department?.name ?? "—"}</span>
                 )}
               </div>
               <InfoRow icon={Briefcase} label="Source detail" value={lead.sourceDetail ?? "—"} />

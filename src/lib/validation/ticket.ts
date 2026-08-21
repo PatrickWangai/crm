@@ -11,6 +11,7 @@ export const TICKET_CATEGORIES = [
   "Technical Support",
   "Account Update",
   "Other",
+  "Don't Know",
 ] as const;
 
 export const TICKET_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;

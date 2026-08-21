@@ -7,6 +7,7 @@ import { communicationSchema, type CommunicationFormState, type DocumentFormStat
 import { taskSchema, type TaskFormState } from "@/lib/validation/task";
 import {
   assignLead,
+  assignLeadToDepartment,
   claimLead,
   createLead,
   deleteLead,
@@ -100,6 +101,17 @@ export async function updateLeadStatusAction(id: string, status: LeadStatus, not
 export async function assignLeadAction(id: string, assignedToId: string | null): Promise<{ error?: string }> {
   try {
     await assignLead(id, assignedToId);
+    revalidatePath("/leads");
+    revalidatePath(`/leads/${id}`);
+    return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function assignLeadToDepartmentAction(id: string, departmentId: string): Promise<{ error?: string }> {
+  try {
+    await assignLeadToDepartment(id, departmentId);
     revalidatePath("/leads");
     revalidatePath(`/leads/${id}`);
     return {};

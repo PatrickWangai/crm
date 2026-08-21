@@ -10,6 +10,7 @@ interface WatchedTicket {
   subject: string;
   category: string;
   description: string;
+  businessUnitId?: string | null;
 }
 
 /**
@@ -18,7 +19,7 @@ interface WatchedTicket {
  * existing behavior; email is new — see lib/email/resend.ts.
  */
 export async function notifyNewRequest(ticket: WatchedTicket, sourceLabel: string) {
-  const watchers = await getTicketWatchers(ticket.category, ticket.subject, ticket.description);
+  const watchers = await getTicketWatchers(ticket.category, ticket.subject, ticket.description, ticket.businessUnitId);
   await Promise.all(
     watchers.map(async (w) => {
       await createNotification({
@@ -46,7 +47,7 @@ export async function notifyNewRequest(ticket: WatchedTicket, sourceLabel: strin
 
 /** Fires when a ticket is accepted (self-assigned with a deadline) — tells the rest of the department who's on it, minus the person who just took it. */
 export async function notifyTicketAccepted(ticket: WatchedTicket, acceptedBy: { id: string; firstName: string; lastName: string }) {
-  const watchers = (await getTicketWatchers(ticket.category, ticket.subject, ticket.description)).filter((w) => w.id !== acceptedBy.id);
+  const watchers = (await getTicketWatchers(ticket.category, ticket.subject, ticket.description, ticket.businessUnitId)).filter((w) => w.id !== acceptedBy.id);
   await Promise.all(
     watchers.map(async (w) => {
       await createNotification({
@@ -108,7 +109,7 @@ export async function notifyTicketForwarded(
 
 /** Fires when a ticket is marked Completed — the "if finished" moment. */
 export async function notifyTicketCompleted(ticket: WatchedTicket, completedBy: { id: string; firstName: string; lastName: string }) {
-  const watchers = (await getTicketWatchers(ticket.category, ticket.subject, ticket.description)).filter((w) => w.id !== completedBy.id);
+  const watchers = (await getTicketWatchers(ticket.category, ticket.subject, ticket.description, ticket.businessUnitId)).filter((w) => w.id !== completedBy.id);
   await Promise.all(
     watchers.map(async (w) => {
       await createNotification({

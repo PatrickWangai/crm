@@ -56,7 +56,7 @@ export function TrackRequestForm({ defaultTicketNumber, defaultEmail }: { defaul
         <SubmitButton />
       </form>
 
-      {state.result && <TrackingResultCard result={state.result} email={state.email} refreshAction={chatTrackTicketAction} />}
+      {state.result && <TrackingResultCard result={state.result} email={state.email} refreshAction={chatTrackTicketAction} chatApiBase="" />}
     </div>
   );
 }

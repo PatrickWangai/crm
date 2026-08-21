@@ -114,7 +114,20 @@ export async function getStakeholderProfile(id: string) {
     },
   });
   if (!profile) return null;
-  return { ...profile, documents: filterVisibleDocuments(user, profile.documents) };
+
+  // "Which business units does this person actually belong to" — e.g. a
+  // SACCO member who's also a real-estate customer, but never touched
+  // insurance. Derived from what they're actually connected to (their own
+  // profile business unit, plus every ticket/lead's) rather than a stored
+  // multi-select, since a stakeholder's real involvement is defined by
+  // their activity, not a one-time form field.
+  const involvedBusinessUnitIds = new Set(
+    [profile.businessUnitId, ...profile.tickets.map((t) => t.businessUnitId), ...profile.leads.map((l) => l.businessUnitId)].filter((id): id is string => !!id),
+  );
+  const allBusinessUnits = await prisma.businessUnit.findMany({ orderBy: { name: "asc" }, select: { id: true, code: true, name: true } });
+  const businessUnitInvolvement = allBusinessUnits.map((bu) => ({ code: bu.code, name: bu.name, involved: involvedBusinessUnitIds.has(bu.id) }));
+
+  return { ...profile, documents: filterVisibleDocuments(user, profile.documents), businessUnitInvolvement };
 }
 
 export async function getStakeholderActivity(id: string) {

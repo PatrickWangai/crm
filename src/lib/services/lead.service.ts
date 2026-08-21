@@ -109,6 +109,7 @@ export async function getLeadDetail(id: string) {
     include: {
       assignedTo: { select: { id: true, firstName: true, lastName: true, jobTitle: true, email: true } },
       businessUnit: true,
+      department: { select: { id: true, name: true } },
       interestedProperty: { select: { id: true, name: true, code: true } },
       interestedUnit: { select: { id: true, unitNumber: true, code: true, property: { select: { name: true } } } },
       campaign: { select: { id: true, name: true } },
@@ -298,6 +299,39 @@ export async function assignLead(id: string, assignedToId: string | null) {
       relatedUrl: `/leads/${lead.id}`,
     });
   }
+
+  return lead;
+}
+
+/** Routes a lead to a whole department (e.g. it turned out to be a Property or SACCO matter) rather than one specific agent — notifies every active member of that department, same "whole team, not just one person" pattern as a ticket landing in a department. */
+export async function assignLeadToDepartment(id: string, departmentId: string) {
+  const actor = await requireAnyPermission(["leads.assign"]);
+  const before = await prisma.lead.findUniqueOrThrow({ where: { id } });
+  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId }, select: { id: true, name: true } });
+
+  const lead = await prisma.lead.update({ where: { id }, data: { departmentId } });
+
+  await recordAudit({
+    userId: actor.id,
+    action: "lead.assigned_to_department",
+    entityType: "Lead",
+    entityId: id,
+    previousValue: { departmentId: before.departmentId },
+    newValue: { departmentId },
+  });
+
+  const members = await prisma.user.findMany({ where: { status: "ACTIVE", departmentId }, select: { id: true } });
+  await Promise.all(
+    members.map((m) =>
+      createNotification({
+        userId: m.id,
+        type: "LEAD_ASSIGNED",
+        title: `Lead routed to ${department.name}`,
+        message: `${lead.firstName} ${lead.lastName} (${lead.code})`,
+        relatedUrl: `/leads/${lead.id}`,
+      }),
+    ),
+  );
 
   return lead;
 }

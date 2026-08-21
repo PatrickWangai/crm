@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createUserSchema } from "@/lib/validation/user";
-import { createDepartmentTeamMember } from "@/lib/services/user.service";
+import { createDepartmentTeamMember, succeedDepartmentHead } from "@/lib/services/user.service";
 import { ForbiddenError, UnauthorizedError } from "@/lib/rbac/guard";
 
 export interface TeamMemberFormState {
@@ -10,6 +11,10 @@ export interface TeamMemberFormState {
   fieldErrors?: Record<string, string[]>;
   success?: boolean;
   tempPassword?: string;
+}
+
+export interface SuccessionFormState {
+  error?: string;
 }
 
 function friendlyError(err: unknown): string {
@@ -42,4 +47,18 @@ export async function createTeamMemberAction(_prev: TeamMemberFormState, formDat
   } catch (err) {
     return { error: friendlyError(err) };
   }
+}
+
+/** On success this deactivates the actor's own account, so their session is no longer valid — redirect straight to /login rather than leaving them on a page they can't use anymore. */
+export async function succeedDepartmentHeadAction(_prev: SuccessionFormState, formData: FormData): Promise<SuccessionFormState> {
+  const successorUserId = String(formData.get("successorUserId") ?? "");
+  if (!successorUserId) return { error: "Choose a successor first." };
+
+  try {
+    await succeedDepartmentHead(successorUserId);
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+
+  redirect("/login");
 }

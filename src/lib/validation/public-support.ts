@@ -30,7 +30,8 @@ export interface PublicTicketStatus {
   ticketNumber: string;
   subject: string;
   category: string;
-  priority: string;
+  // Deliberately no `priority` — internal triage detail, only depts should
+  // see it (SLA timing is still surfaced via expectedResponseBy).
   status: string;
   stage: 1 | 2 | 3;
   stageLabel: string;
@@ -77,5 +78,26 @@ export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;
 export interface SubmitReviewFormState {
   error?: string;
   fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+}
+
+/** Same (ticketNumber, email) shared-secret pairing as the tracker itself — sending a live-chat message doesn't need a separate login. */
+export const sendCustomerChatMessageSchema = z.object({
+  ticketNumber: z.string().trim().min(1, "Missing reference number"),
+  email: z.string().trim().toLowerCase().email("Missing a valid email"),
+  content: z.string().trim().min(1, "Type a message first").max(1000, "Keep it under 1000 characters"),
+});
+
+export type SendCustomerChatMessageInput = z.infer<typeof sendCustomerChatMessageSchema>;
+
+export interface LiveChatMessage {
+  id: string;
+  from: "customer" | "staff";
+  content: string;
+  occurredAt: string;
+}
+
+export interface SendChatMessageFormState {
+  error?: string;
   success?: boolean;
 }

@@ -138,6 +138,7 @@ enum CommunicationChannel {
   NOTE
   WALK_IN
   CHATBOT
+  LIVE_CHAT
 }
 
 enum CommunicationDirection {
@@ -258,6 +259,7 @@ model Department {
   tasks   Task[]
   tickets Ticket[]
   reviews Review[]
+  leads   Lead[]
 
   @@map("departments")
 }
@@ -457,6 +459,9 @@ model Lead {
   assignedToId String?
   assignedTo   User?   @relation("AssignedAgent", fields: [assignedToId], references: [id])
 
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
   convertedStakeholderId String?
   convertedStakeholder   Stakeholder? @relation(fields: [convertedStakeholderId], references: [id])
 
@@ -476,6 +481,7 @@ model Lead {
   @@index([status])
   @@index([assignedToId])
   @@index([businessUnitId])
+  @@index([departmentId])
   @@map("leads")
 }
 

@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Radio, Eye, MessageSquare } from "lucide-react";
+import { Users, Radio, Eye, MessageSquare, MessageCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
+import { StaffChatPanel } from "@/components/live-activity/staff-chat-panel";
 import type { LiveActivitySnapshot } from "@/lib/services/live-activity.service";
+import type { LiveChatMessage } from "@/lib/validation/public-support";
 
 const POLL_MS = 30_000;
 
@@ -25,11 +28,16 @@ function LiveDot() {
 export function LiveActivityView({
   initial,
   refreshAction,
+  fetchThread,
+  sendMessage,
 }: {
   initial: LiveActivitySnapshot;
   refreshAction: () => Promise<LiveActivitySnapshot>;
+  fetchThread: (ticketId: string) => Promise<LiveChatMessage[]>;
+  sendMessage: (ticketId: string, content: string) => Promise<LiveChatMessage>;
 }) {
   const [snapshot, setSnapshot] = useState(initial);
+  const [openChat, setOpenChat] = useState<{ ticketId: string; ticketNumber: string } | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -68,7 +76,8 @@ export function LiveActivityView({
                     <th className="pb-2 pr-4 font-medium">Ticket</th>
                     <th className="pb-2 pr-4 font-medium">Page views</th>
                     <th className="pb-2 pr-4 font-medium">First seen</th>
-                    <th className="pb-2 font-medium">Last seen</th>
+                    <th className="pb-2 pr-4 font-medium">Last seen</th>
+                    <th className="pb-2 font-medium" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -81,6 +90,18 @@ export function LiveActivityView({
                       <td className="py-2 pr-4">{v.pageViews}</td>
                       <td className="py-2 pr-4 text-xs text-muted-foreground">{formatDistanceToNow(new Date(v.firstSeenAt), { addSuffix: true })}</td>
                       <td className="py-2 text-xs text-muted-foreground">{formatDistanceToNow(new Date(v.lastSeenAt), { addSuffix: true })}</td>
+                      <td className="py-2 text-right">
+                        {v.ticketId && v.ticketNumber && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 text-xs"
+                            onClick={() => setOpenChat({ ticketId: v.ticketId!, ticketNumber: v.ticketNumber! })}
+                          >
+                            <MessageCircle className="size-3.5" /> Chat
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -89,6 +110,16 @@ export function LiveActivityView({
           )}
         </CardContent>
       </Card>
+
+      {openChat && (
+        <StaffChatPanel
+          ticketId={openChat.ticketId}
+          ticketNumber={openChat.ticketNumber}
+          onClose={() => setOpenChat(null)}
+          fetchThread={fetchThread}
+          sendMessage={sendMessage}
+        />
+      )}
     </div>
   );
 }

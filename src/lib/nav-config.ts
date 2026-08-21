@@ -56,6 +56,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Notifications", href: "/notifications", icon: Bell, permission: "notifications.view_own" },
       { label: "Tasks", href: "/tasks", icon: CheckSquare, permission: ["tasks.view_all", "tasks.view_own"] },
       { label: "My Team", href: "/team", icon: UserPlus, permission: "users.manage_department" },
+      { label: "Live Activity", href: "/live-activity", icon: Radio, permission: "live_activity.view" },
     ],
   },
   {
@@ -90,7 +91,6 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: Ticket,
         permission: ["tickets.view_all", "tickets.view_own"],
       },
-      { label: "Live Activity", href: "/live-activity", icon: Radio, permission: "live_activity.view" },
     ],
   },
   {

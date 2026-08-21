@@ -170,6 +170,11 @@ const BASE_SALES: string[] = [
   // Each sales team can grow itself without going through ICT — see
   // department-team-roles.ts for exactly which roles this lets them add.
   "users.manage_department",
+  // Live activity now covers every customer-facing department, not just
+  // Customer Care — each department's view is scoped to its own tickets
+  // (see live-activity.service.ts), so this only surfaces this team's own
+  // visitors/conversations.
+  "live_activity.view",
 ];
 
 /**
@@ -294,6 +299,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // not just the head — DEPARTMENT_HEAD_ROLE in department-team-roles.ts
     // still stops Finance Officer from minting a new CFO specifically.
     "users.manage_department",
+    "live_activity.view",
   ],
   cfo: [
     "dashboard.view",
@@ -312,6 +318,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // CFO, not Finance Officer, is Finance's head — mirrors who else holds
     // this across departments (customer-care, property-manager, etc.).
     "users.manage_department",
+    "live_activity.view",
   ],
   "hr-administration": [
     "dashboard.view",
@@ -333,6 +340,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tickets.assign",
     "tickets.update",
     "users.manage_department",
+    "live_activity.view",
   ],
   "ict-administrator": ALL,
   "property-manager": [
@@ -368,6 +376,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // head — DEPARTMENT_HEAD_ROLE in department-team-roles.ts still stops
     // the other three from minting a new Senior Property Manager.
     "users.manage_department",
+    "live_activity.view",
   ],
   "regional-property-coordinator": [
     "dashboard.view",
@@ -386,6 +395,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "communications.view_own",
     "communications.create",
     "users.manage_department",
+    "live_activity.view",
   ],
   "regional-manager": [
     "dashboard.view",
@@ -401,6 +411,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "notifications.view_own",
     "communications.view_own",
     "users.manage_department",
+    "live_activity.view",
   ],
   "assistant-property-manager": [
     "dashboard.view",
@@ -426,6 +437,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "tickets.assign",
     "tickets.update",
     "users.manage_department",
+    "live_activity.view",
   ],
   "sacco-sales-marketing": BASE_SALES,
   "insurance-sales-marketing": BASE_SALES,

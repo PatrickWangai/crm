@@ -104,7 +104,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const emailsSent = ticket.communications.filter((c) => c.channel === "EMAIL" && c.direction === "OUTBOUND");
   const emailsReceived = ticket.communications.filter((c) => c.channel === "EMAIL" && c.direction === "INBOUND");
   const chatbotTurns = ticket.communications.filter((c) => c.channel === "CHATBOT");
-  const otherCommunications = ticket.communications.filter((c) => c.channel !== "EMAIL" && c.channel !== "CHATBOT");
+  const liveChatTurns = ticket.communications.filter((c) => c.channel === "LIVE_CHAT");
+  const otherCommunications = ticket.communications.filter((c) => c.channel !== "EMAIL" && c.channel !== "CHATBOT" && c.channel !== "LIVE_CHAT");
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -188,7 +189,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <InfoRow icon={Phone} label="Stakeholder phone" value={ticket.stakeholder.phone ?? "—"} />
               <InfoRow icon={Building2} label="Business unit" value={ticket.businessUnit?.name ?? "—"} />
               <InfoRow icon={Building2} label="Department" value={ticket.department?.name ?? "—"} />
-              <RoutingCheckNote check={checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description)} />
+              <RoutingCheckNote check={checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description, ticket.businessUnit?.code ?? null)} />
             </CardContent>
           </Card>
 
@@ -320,6 +321,20 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               </CardHeader>
               <CardContent>
                 <CommunicationList items={chatbotTurns} emptyText="" />
+              </CardContent>
+            </Card>
+          )}
+
+          {liveChatTurns.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="size-4" /> Live chat
+                </CardTitle>
+                <CardDescription>The back-and-forth with the customer once this ticket was assigned — also reachable from Live Activity.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CommunicationList items={liveChatTurns} emptyText="" />
               </CardContent>
             </Card>
           )}

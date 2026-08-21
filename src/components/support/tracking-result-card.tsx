@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { StatusBadge } from "@/components/status-badge";
 import { SupportStageStepper } from "@/components/support/support-stage-stepper";
 import { ResponseCountdown } from "@/components/support/response-countdown";
+import { LiveChatThread } from "@/components/support/live-chat-thread";
 import type { PublicTicketStatus } from "@/lib/validation/public-support";
 
 const POLL_MS = 45_000;
@@ -25,11 +25,14 @@ export function TrackingResultCard({
   email,
   refreshAction,
   onRefresh,
+  chatApiBase,
 }: {
   result: PublicTicketStatus;
   email?: string | null;
   refreshAction?: RefreshAction;
   onRefresh?: (result: PublicTicketStatus) => void;
+  /** Base URL for the live-chat API — "" for this app's own relative route, an absolute CRM URL for the standalone customer app. Omit to hide the chat thread entirely. */
+  chatApiBase?: string;
 }) {
   const [live, setLive] = useState(result);
   const firedInitialRef = useRef(false);
@@ -86,7 +89,6 @@ export function TrackingResultCard({
               Live
             </span>
           )}
-          <StatusBadge status={live.priority} />
         </div>
       </div>
 
@@ -113,6 +115,8 @@ export function TrackingResultCard({
           </ul>
         </div>
       )}
+
+      {chatApiBase !== undefined && email && live.stage >= 2 && <LiveChatThread apiBase={chatApiBase} ticketNumber={live.ticketNumber} email={email} />}
     </div>
   );
 }

@@ -190,6 +190,20 @@ export default async function StakeholderProfilePage({ params }: { params: Promi
 
           <Card className="sm:col-span-2">
             <CardHeader>
+              <CardTitle>Business unit involvement</CardTitle>
+              <CardDescription>Which of the group&apos;s business units this person actually has activity with — their own profile, tickets and leads combined.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {profile.businessUnitInvolvement.map((bu) => (
+                <Badge key={bu.code} variant={bu.involved ? "default" : "outline"} className={bu.involved ? "" : "text-muted-foreground"}>
+                  {bu.name}
+                </Badge>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="sm:col-span-2">
+            <CardHeader>
               <CardTitle>Snapshot</CardTitle>
               <CardDescription>Records linked to this profile across the CRM.</CardDescription>
             </CardHeader>

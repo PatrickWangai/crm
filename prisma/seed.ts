@@ -14,11 +14,19 @@ const BUSINESS_UNITS: { code: BusinessUnitCode; name: string; description: strin
   { code: "MHL", name: "Masterways Housing Limited", description: "Housing cooperative and developments" },
 ];
 
+// The company runs a separate Customer Care team per business unit, not one
+// shared team — CARE_MRE (real estate) is the default/fallback for general
+// or unclear requests; CARE_SACCO and CARE_INSURANCE are new. The old single
+// "CARE" department is renamed in place to CARE_MRE (see the migration step
+// in main() below) so existing users/tickets keep their department, rather
+// than being recreated under a new id.
 const DEPARTMENTS: { code: string; name: string; businessUnit: BusinessUnitCode }[] = [
   { code: "EXEC", name: "Executive Office", businessUnit: "MGC" },
   { code: "AUDIT", name: "Internal Audit", businessUnit: "MGC" },
   { code: "SALES", name: "Sales & Marketing", businessUnit: "MGC" },
-  { code: "CARE", name: "Customer Care", businessUnit: "MGC" },
+  { code: "CARE_MRE", name: "Customer Care – Real Estate", businessUnit: "MRE" },
+  { code: "CARE_SACCO", name: "Customer Care – SACCO", businessUnit: "MSL" },
+  { code: "CARE_INSURANCE", name: "Customer Care – Insurance", businessUnit: "MIA" },
   { code: "FIN", name: "Finance", businessUnit: "MGC" },
   { code: "HR", name: "Human Resource & Administration", businessUnit: "MGC" },
   { code: "ICT", name: "ICT Department", businessUnit: "MGC" },
@@ -34,6 +42,8 @@ const REPORTING_LINES: Record<string, string> = {
   "ict-administrator@masterways.co.ke": "ceo@masterways.co.ke",
   "property-manager@masterways.co.ke": "regional-manager@masterways.co.ke",
   "customer-care@masterways.co.ke": "ceo@masterways.co.ke",
+  "customer-care-sacco@masterways.co.ke": "management@masterways.co.ke",
+  "customer-care-insurance@masterways.co.ke": "ceo@masterways.co.ke",
   "sales-marketing@masterways.co.ke": "ceo@masterways.co.ke",
   "regional-property-coordinator@masterways.co.ke": "regional-manager@masterways.co.ke",
   "regional-manager@masterways.co.ke": "ceo@masterways.co.ke",
@@ -102,6 +112,23 @@ async function main() {
       create: bu,
     });
     businessUnitByCode.set(bu.code, record.id);
+  }
+
+  // One-time migration: the old single "CARE" department is renamed in
+  // place to CARE_MRE (same row/id, so every existing user/ticket/task/
+  // review already pointing at it keeps working) instead of being
+  // recreated — a plain upsert-by-code below would otherwise leave the old
+  // CARE row orphaned and create a brand new, empty CARE_MRE row. Guarded
+  // so it only fires once: the second time this runs, code "CARE" no
+  // longer exists and this is a no-op forever after.
+  const oldCareDept = await prisma.department.findUnique({ where: { code: "CARE" } });
+  if (oldCareDept) {
+    const mreBusinessUnitId = businessUnitByCode.get("MRE");
+    await prisma.department.update({
+      where: { id: oldCareDept.id },
+      data: { code: "CARE_MRE", name: "Customer Care – Real Estate", businessUnitId: mreBusinessUnitId },
+    });
+    console.log("Migrated existing Customer Care department (CARE) -> CARE_MRE");
   }
 
   console.log("Seeding departments...");
