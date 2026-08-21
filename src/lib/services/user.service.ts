@@ -5,6 +5,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/guard";
 import { DEPARTMENT_TEAM_ROLES, DEPARTMENT_HEAD_ROLE } from "@/lib/rbac/department-team-roles";
 import { recordAudit } from "@/lib/audit/log";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { notifyNewAccount } from "@/lib/notifications/user-events";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validation/user";
 
 const userListInclude = {
@@ -115,7 +116,12 @@ async function createUserRecord(actorId: string, input: CreateUserInput): Promis
     newValue: { email: user.email, roleId: user.roleId },
   });
 
-  return { user: await getUserByIdInternal(user.id), tempPassword };
+  const fullUser = await getUserByIdInternal(user.id);
+  if (fullUser?.email && fullUser.role) {
+    await notifyNewAccount(fullUser, fullUser.role.name, tempPassword);
+  }
+
+  return { user: fullUser, tempPassword };
 }
 
 export async function createUser(input: CreateUserInput): Promise<{ user: Awaited<ReturnType<typeof getUserByIdInternal>>; tempPassword: string }> {
