@@ -1,6 +1,12 @@
 import { requireUser } from "@/lib/rbac/guard";
 import { getOwnProfile } from "@/lib/services/user.service";
-import { listTransferCandidates, listMyOutgoingTransfers, listMyIncomingTransfers, canDeleteOwnAccount } from "@/lib/services/transfer.service";
+import {
+  listTransferCandidates,
+  listMyOutgoingTransfers,
+  listMyIncomingTransfers,
+  listMyActiveTemporaryHandoffs,
+  canDeleteOwnAccount,
+} from "@/lib/services/transfer.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,12 +24,13 @@ import { initials } from "@/lib/utils";
 import { Mail, Phone, Briefcase, Building2, Landmark, Users } from "lucide-react";
 
 export default async function ProfilePage() {
-  await requireUser();
-  const [profile, transferCandidates, outgoingTransfers, incomingTransfers, deletionEligible] = await Promise.all([
+  const user = await requireUser();
+  const [profile, transferCandidates, outgoingTransfers, incomingTransfers, activeTemporaryHandoffs, deletionEligible] = await Promise.all([
     getOwnProfile(),
     listTransferCandidates(),
     listMyOutgoingTransfers(),
     listMyIncomingTransfers(),
+    listMyActiveTemporaryHandoffs(),
     canDeleteOwnAccount(),
   ]);
   if (!profile) return null;
@@ -152,7 +159,13 @@ export default async function ProfilePage() {
           <CardDescription>Transfer your work — and your role, if you hold a department head role — to a teammate, with their explicit acceptance required.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TransferSection candidates={transferCandidates} outgoing={outgoingTransfers} incoming={incomingTransfers} />
+          <TransferSection
+            currentUserId={user.id}
+            candidates={transferCandidates}
+            outgoing={outgoingTransfers}
+            incoming={incomingTransfers}
+            activeTemporary={activeTemporaryHandoffs}
+          />
         </CardContent>
       </Card>
 

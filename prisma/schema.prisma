@@ -383,25 +383,59 @@ enum TransferRequestStatus {
 /// "Leave & hand off" — a two-party handoff: the outgoing user picks a
 /// successor, who must explicitly accept before anything actually moves
 /// (their tickets/tasks/leads, and their role if they hold a department
-/// head role — see DEPARTMENT_HEAD_ROLE in department-team-roles.ts). The
-/// outgoing user can only deactivate their own account once they have at
-/// least one ACCEPTED request here — "verified on both ends."
+/// head role — see DEPARTMENT_HEAD_ROLE in department-team-roles.ts).
+/// durationDays null = permanent/forever (the original behavior) — only
+/// this kind counts toward unlocking self-deactivation, since that's for
+/// someone leaving for good. A set durationDays makes it temporary (e.g.
+/// covering someone's leave): the clock starts at acceptance (respondedAt),
+/// expiresAt is computed then, and TransferredItem rows record exactly
+/// which tickets/tasks/leads moved so a revert (manual via "End hand-off
+/// now", or lazily checked whenever either party's Profile page loads
+/// past expiresAt — see checkExpiredTransfers in transfer.service.ts, no
+/// real background scheduler exists in this app) can hand back precisely
+/// those items, and only the ones still actually held by the successor —
+/// anything they've since reassigned elsewhere stays put.
+/// originalToUserRoleId snapshots the successor's role from before any
+/// promotesRole promotion, so a temporary role grant can be undone
+/// exactly regardless of what else happens to either user's role while
+/// the hand-off is in effect.
 model TransferRequest {
-  id           String                @id @default(cuid())
-  fromUserId   String
-  fromUser     User                  @relation("TransferFrom", fields: [fromUserId], references: [id])
-  toUserId     String
-  toUser       User                  @relation("TransferTo", fields: [toUserId], references: [id])
-  departmentId String
-  department   Department            @relation(fields: [departmentId], references: [id])
-  promotesRole Boolean               @default(false)
-  status       TransferRequestStatus @default(PENDING)
-  createdAt    DateTime              @default(now())
-  respondedAt  DateTime?
+  id                   String                @id @default(cuid())
+  fromUserId           String
+  fromUser             User                  @relation("TransferFrom", fields: [fromUserId], references: [id])
+  toUserId             String
+  toUser               User                  @relation("TransferTo", fields: [toUserId], references: [id])
+  departmentId         String
+  department           Department            @relation(fields: [departmentId], references: [id])
+  promotesRole         Boolean               @default(false)
+  status               TransferRequestStatus @default(PENDING)
+  durationDays         Int?
+  expiresAt            DateTime?
+  revertedAt           DateTime?
+  originalToUserRoleId String?
+  createdAt            DateTime              @default(now())
+  respondedAt          DateTime?
+
+  transferredItems TransferredItem[]
 
   @@index([toUserId, status])
   @@index([fromUserId])
   @@map("transfer_requests")
+}
+
+/// Exactly which entities moved when a TransferRequest was accepted —
+/// lets a temporary hand-off's revert hand back only what's still with
+/// the successor, not blindly everything they hold at revert time (they
+/// may have picked up unrelated new work in the meantime).
+model TransferredItem {
+  id                String          @id @default(cuid())
+  transferRequestId String
+  transferRequest   TransferRequest @relation(fields: [transferRequestId], references: [id], onDelete: Cascade)
+  entityType        String // "TICKET" | "TASK" | "LEAD"
+  entityId          String
+
+  @@index([transferRequestId])
+  @@map("transferred_items")
 }
 
 model Session {
