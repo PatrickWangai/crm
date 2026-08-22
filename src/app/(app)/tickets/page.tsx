@@ -88,6 +88,15 @@ async function TableSection({
     return <EmptyState icon={TicketIcon} title="No tickets found" description="Try adjusting your filters, or log a new ticket." />;
   }
 
+  const routingChecks = new Map(
+    await Promise.all(
+      tickets.map(async (ticket) => [
+        ticket.id,
+        await checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description, ticket.businessUnit?.id ?? null),
+      ] as const),
+    ),
+  );
+
   return (
     <>
       <Table>
@@ -116,7 +125,7 @@ async function TableSection({
               <TableCell>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <span>{ticket.department?.name ?? "—"}</span>
-                  <RoutingCheckIcon check={checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description, ticket.businessUnit?.code ?? null)} />
+                  <RoutingCheckIcon check={routingChecks.get(ticket.id)!} />
                 </div>
               </TableCell>
               <TableCell>

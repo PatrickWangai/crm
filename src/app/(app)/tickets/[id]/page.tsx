@@ -94,6 +94,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         }).text
       : null;
 
+  const routingCheck = await checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description, ticket.businessUnit?.id ?? null);
+
   const canUpdate = hasPermission(user, "tickets.update");
   const canDelete = hasPermission(user, "tickets.delete");
   const canAssign = hasPermission(user, "tickets.assign");
@@ -190,7 +192,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <InfoRow icon={Phone} label="Stakeholder phone" value={ticket.stakeholder.phone ?? "—"} />
               <InfoRow icon={Building2} label="Business unit" value={ticket.businessUnit?.name ?? "—"} />
               <InfoRow icon={Building2} label="Department" value={ticket.department?.name ?? "—"} />
-              <RoutingCheckNote check={checkRouting(ticket.department?.code ?? null, ticket.category, ticket.subject, ticket.description, ticket.businessUnit?.code ?? null)} />
+              <RoutingCheckNote check={routingCheck} />
             </CardContent>
           </Card>
 

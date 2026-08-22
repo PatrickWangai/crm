@@ -15,6 +15,7 @@ function toInput(formData: FormData) {
     name: formData.get("name"),
     code: formData.get("code"),
     businessUnitId: formData.get("businessUnitId"),
+    category: formData.get("category"),
   };
 }
 

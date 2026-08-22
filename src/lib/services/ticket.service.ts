@@ -7,7 +7,7 @@ import { createNotification } from "@/lib/services/notification.service";
 import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded } from "@/lib/notifications/ticket-events";
 import { notifyCustomerReceived, notifyCustomerStageChanged } from "@/lib/notifications/customer-events";
 import { getSupportStage } from "@/lib/support-stage";
-import { CUSTOMER_FACING_DEPARTMENT_CODES, resolveCareDepartment, getDepartmentMembers } from "@/lib/services/department-routing";
+import { resolveCareDepartment, getDepartmentMembers } from "@/lib/services/department-routing";
 import { pickSlaForTicket } from "@/lib/services/sla.service";
 import { isWorkflowActive } from "@/lib/services/workflow.service";
 import { filterVisibleDocuments } from "@/lib/services/document.service";
@@ -301,9 +301,9 @@ export async function acceptTicket(id: string, assignedToId: string, dueAt: Date
 export async function forwardTicketToDepartment(id: string, departmentId: string, note: string | null) {
   const actor = await requireAnyPermission(["tickets.assign"]);
   const before = await prisma.ticket.findUniqueOrThrow({ where: { id } });
-  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId }, select: { id: true, name: true, code: true } });
+  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId }, select: { id: true, name: true, code: true, category: true } });
 
-  if (!CUSTOMER_FACING_DEPARTMENT_CODES.includes(department.code)) {
+  if (!department.category) {
     throw new Error(`${department.name} doesn't handle customer tickets — pick a department that does.`);
   }
 
@@ -408,18 +408,14 @@ export async function checkSlaRisk() {
     where: { status: { notIn: ["COMPLETED", "CLOSED"] }, dueAt: { not: null } },
   });
 
-  const businessUnitIds = Array.from(new Set(openTickets.map((t) => t.businessUnitId).filter((id): id is string => !!id)));
-  const businessUnits = businessUnitIds.length ? await prisma.businessUnit.findMany({ where: { id: { in: businessUnitIds } }, select: { id: true, code: true } }) : [];
-  const businessUnitCodeById = new Map(businessUnits.map((bu) => [bu.id, bu.code]));
-
   const careTeamCache = new Map<string, { id: string }[]>();
-  async function getCareTeamMembers(businessUnitCode: string | null) {
-    const care = resolveCareDepartment(businessUnitCode);
-    if (!careTeamCache.has(care.code)) {
-      const dept = await prisma.department.findUnique({ where: { code: care.code }, select: { id: true } });
-      careTeamCache.set(care.code, dept ? await getDepartmentMembers(dept.id) : []);
+  async function getCareTeamMembers(businessUnitId: string | null) {
+    const cacheKey = businessUnitId ?? "__default__";
+    if (!careTeamCache.has(cacheKey)) {
+      const care = await resolveCareDepartment(businessUnitId);
+      careTeamCache.set(cacheKey, await getDepartmentMembers(care.id));
     }
-    return careTeamCache.get(care.code)!;
+    return careTeamCache.get(cacheKey)!;
   }
 
   const now = Date.now();
@@ -432,8 +428,7 @@ export async function checkSlaRisk() {
     const breached = due < now;
     if (!breached && elapsedFraction < SLA_RISK_THRESHOLD) continue;
 
-    const businessUnitCode = ticket.businessUnitId ? (businessUnitCodeById.get(ticket.businessUnitId) ?? null) : null;
-    const careMembers = await getCareTeamMembers(businessUnitCode);
+    const careMembers = await getCareTeamMembers(ticket.businessUnitId ?? null);
     const recipientIds = new Set<string>(careMembers.map((m) => m.id));
     if (ticket.assignedToId) recipientIds.add(ticket.assignedToId);
 

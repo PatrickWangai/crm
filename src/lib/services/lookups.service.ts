@@ -1,7 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { requireAuth } from "@/lib/rbac/guard";
-import { CUSTOMER_FACING_DEPARTMENT_CODES } from "@/lib/services/department-routing";
 
 export async function listRoleOptions() {
   await requireAuth();
@@ -14,16 +13,17 @@ export async function listDepartmentOptions() {
 }
 
 /**
- * Departments a ticket can actually be routed to — excludes internal
- * oversight departments (Board/Executive/Internal Audit/SACCO Credit
- * Committee) that have no staff able to act on a ticket. Use this instead
- * of listDepartmentOptions() anywhere a user picks a ticket's department
- * (manual create/edit, forward-to-department) — see department-routing.ts.
+ * Departments a ticket can actually be routed to — any department with a
+ * category set (see department-routing.ts, Department.category). Excludes
+ * internal oversight departments (Board/Executive/Internal Audit/SACCO
+ * Credit Committee), which have no category and no staff able to act on a
+ * ticket. Use this instead of listDepartmentOptions() anywhere a user picks
+ * a ticket's department (manual create/edit, forward-to-department).
  */
 export async function listTicketDepartmentOptions() {
   await requireAuth();
   return prisma.department.findMany({
-    where: { code: { in: [...CUSTOMER_FACING_DEPARTMENT_CODES] } },
+    where: { category: { not: null } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, code: true },
   });

@@ -10,6 +10,7 @@ import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle, S
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createDepartmentAction, updateDepartmentAction, type DepartmentFormState } from "@/app/(app)/admin/departments/actions";
 import type { Option } from "@/components/admin/users/user-form-sheet";
+import { DEPARTMENT_CATEGORIES } from "@/lib/validation/org";
 
 const initialState: DepartmentFormState = {};
 
@@ -31,12 +32,13 @@ export function DepartmentFormSheet({
   mode: "create" | "edit";
   departmentId?: string;
   businessUnits: Option[];
-  defaultValues?: { name: string; code: string; businessUnitId: string | null };
+  defaultValues?: { name: string; code: string; businessUnitId: string | null; category?: string | null };
 }) {
   const [open, setOpen] = useState(false);
   const action = mode === "create" ? createDepartmentAction : updateDepartmentAction.bind(null, departmentId!);
   const [state, formAction] = useActionState(action, initialState);
   const [businessUnitId, setBusinessUnitId] = useState(defaultValues?.businessUnitId ?? "");
+  const [category, setCategory] = useState(defaultValues?.category ?? "");
 
   const [prevState, setPrevState] = useState(state);
   if (state !== prevState) {
@@ -92,6 +94,25 @@ export function DepartmentFormSheet({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="category">Ticket category</Label>
+              <input type="hidden" name="category" value={category} />
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="No category — doesn't handle tickets" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Which ticket category this department handles, for this business unit. Leave unset for oversight departments (Board, Executive, Audit) that don&apos;t take tickets.
+              </p>
             </div>
           </SheetBody>
           <SheetFooter>

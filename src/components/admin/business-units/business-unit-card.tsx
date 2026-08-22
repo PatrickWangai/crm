@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { updateBusinessUnitAction, type BusinessUnitFormState } from "@/app/(app)/admin/business-units/actions";
+import { DeleteBusinessUnitButton } from "@/components/admin/business-units/delete-business-unit-button";
 
 const initialState: BusinessUnitFormState = {};
 
@@ -58,9 +59,12 @@ export function BusinessUnitCard({
           <Badge variant="outline">{code}</Badge>
         </div>
         {!editing && (
-          <Button variant="ghost" size="icon" onClick={() => setEditing(true)}>
-            <Pencil className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => setEditing(true)}>
+              <Pencil className="size-4" />
+            </Button>
+            <DeleteBusinessUnitButton businessUnitId={id} name={name} userCount={userCount} departmentCount={departmentCount} />
+          </div>
         )}
       </CardHeader>
       <CardContent>

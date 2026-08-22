@@ -115,14 +115,12 @@ export async function submitPublicSupportRequest(input: PublicSupportRequestInpu
 
   const sla = await pickSlaForTicket(priority, businessUnitId);
 
-  const businessUnit = businessUnitId ? await prisma.businessUnit.findUnique({ where: { id: businessUnitId }, select: { code: true } }) : null;
-
-  // Every category routes to exactly one department (see suggestDepartment) —
-  // this is the actual forwarding decision, made the moment the request lands.
-  // For categories that land in Customer Care, the business unit picks which
-  // of the two CC teams (real estate / SACCO).
-  const { department } = suggestDepartment(input.category, input.subject, input.description, businessUnit?.code);
-  const routedDepartment = await prisma.department.findFirst({ where: { code: department.code } });
+  // Every category routes to a department for this business unit (see
+  // suggestDepartment) — this is the actual forwarding decision, made the
+  // moment the request lands. For categories/business units without their
+  // own dedicated department, this falls through to the shared/corporate
+  // queue or the business unit's Customer Care team.
+  const { department: routedDepartment } = await suggestDepartment(input.category, input.subject, input.description, businessUnitId);
 
   const ticket = await prisma.ticket.create({
     data: {

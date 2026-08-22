@@ -1,4 +1,4 @@
-import { PrismaClient, type BusinessUnitCode } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { ROLES } from "../src/lib/rbac/roles";
 import { PERMISSIONS, ROLE_PERMISSIONS } from "../src/lib/rbac/permissions";
@@ -6,7 +6,7 @@ import { DEMO_ACCOUNTS } from "../src/lib/demo-accounts";
 
 const prisma = new PrismaClient();
 
-const BUSINESS_UNITS: { code: BusinessUnitCode; name: string; description: string }[] = [
+const BUSINESS_UNITS: { code: string; name: string; description: string }[] = [
   { code: "MGC", name: "Masterways Group of Companies", description: "Corporate / shared services" },
   { code: "MRE", name: "Masterways Real Estate", description: "Property sales, leasing and management" },
   { code: "MSL", name: "Masterways Sacco Limited", description: "Savings and Credit Cooperative" },
@@ -20,18 +20,29 @@ const BUSINESS_UNITS: { code: BusinessUnitCode; name: string; description: strin
 // insurance-related requests (there's no dedicated Insurance CC team). The
 // old single "CARE" department is renamed in place to CARE_MRE (see the
 // migration step in main() below) so existing users/tickets keep their
-// department, rather than being recreated under a new id.
-const DEPARTMENTS: { code: string; name: string; businessUnit: BusinessUnitCode }[] = [
-  { code: "EXEC", name: "Executive Office", businessUnit: "MGC" },
-  { code: "AUDIT", name: "Internal Audit", businessUnit: "MGC" },
-  { code: "SALES", name: "Sales & Marketing", businessUnit: "MGC" },
-  { code: "CARE_MRE", name: "Customer Care – Real Estate", businessUnit: "MRE" },
-  { code: "CARE_SACCO", name: "Customer Care – SACCO", businessUnit: "MSL" },
-  { code: "FIN", name: "Finance", businessUnit: "MGC" },
-  { code: "HR", name: "Human Resource & Administration", businessUnit: "MGC" },
-  { code: "ICT", name: "ICT Department", businessUnit: "MGC" },
-  { code: "PROPERTY", name: "Property Management", businessUnit: "MRE" },
-  { code: "CREDIT", name: "Credit & Risk", businessUnit: "MSL" },
+// department, rather than being recreated under a new id. Same story for
+// Sales & Marketing: SALES (one shared queue) is renamed in place to
+// SALES_MRE, and SALES_SACCO/SALES_MIA are new departments matching the
+// business-unit-specific sales staff that already exist.
+//
+// `category` is what department-routing.ts actually keys off of to route
+// an incoming ticket — it's the routable category this department
+// handles, scoped to `businessUnit`. Oversight departments (Executive,
+// Internal Audit, Credit & Risk) take no tickets, so their category is
+// null and department-routing.ts's lookups never resolve to them.
+const DEPARTMENTS: { code: string; name: string; businessUnit: string; category: string | null }[] = [
+  { code: "EXEC", name: "Executive Office", businessUnit: "MGC", category: null },
+  { code: "AUDIT", name: "Internal Audit", businessUnit: "MGC", category: null },
+  { code: "SALES_MRE", name: "Sales & Marketing – Real Estate", businessUnit: "MRE", category: "Sales & Marketing" },
+  { code: "SALES_SACCO", name: "Sales & Marketing – SACCO", businessUnit: "MSL", category: "Sales & Marketing" },
+  { code: "SALES_MIA", name: "Sales & Marketing – Insurance", businessUnit: "MIA", category: "Sales & Marketing" },
+  { code: "CARE_MRE", name: "Customer Care – Real Estate", businessUnit: "MRE", category: "Customer Care" },
+  { code: "CARE_SACCO", name: "Customer Care – SACCO", businessUnit: "MSL", category: "Customer Care" },
+  { code: "FIN", name: "Finance", businessUnit: "MGC", category: "Finance" },
+  { code: "HR", name: "Human Resource & Administration", businessUnit: "MGC", category: "HR & Administration" },
+  { code: "ICT", name: "ICT Department", businessUnit: "MGC", category: "Technical Support" },
+  { code: "PROPERTY", name: "Property Management", businessUnit: "MRE", category: "Property Management" },
+  { code: "CREDIT", name: "Credit & Risk", businessUnit: "MSL", category: null },
 ];
 
 // email -> reportingTo email
@@ -159,14 +170,33 @@ async function main() {
     console.log("Removed Customer Care – Insurance (CARE_INSURANCE) — Customer Care only runs Real Estate and SACCO teams");
   }
 
+  // One-time migration: the old shared "SALES" department (one queue that
+  // every business unit's Sales & Marketing tickets landed in, even though
+  // dedicated Real Estate/SACCO/Insurance sales staff already exist) is
+  // renamed in place to SALES_MRE — same reasoning as the CARE -> CARE_MRE
+  // rename above: existing users/tickets/leads pointing at it keep
+  // working, rather than being orphaned under a recreated row.
+  // SALES_SACCO/SALES_MIA are created fresh by the normal upsert loop
+  // below, and the two demo accounts that used to share the old SALES
+  // queue are repointed at their own department via demo-accounts.ts's
+  // departmentCode. No-op once "SALES" no longer exists.
+  const oldSalesDept = await prisma.department.findUnique({ where: { code: "SALES" } });
+  if (oldSalesDept) {
+    await prisma.department.update({
+      where: { id: oldSalesDept.id },
+      data: { code: "SALES_MRE", name: "Sales & Marketing – Real Estate", businessUnitId: businessUnitByCode.get("MRE") },
+    });
+    console.log("Migrated existing Sales & Marketing department (SALES) -> SALES_MRE");
+  }
+
   console.log("Seeding departments...");
   const departmentByCode = new Map<string, string>();
   for (const dept of DEPARTMENTS) {
     const businessUnitId = businessUnitByCode.get(dept.businessUnit);
     const record = await prisma.department.upsert({
       where: { code: dept.code },
-      update: { name: dept.name, businessUnitId },
-      create: { code: dept.code, name: dept.name, businessUnitId },
+      update: { name: dept.name, businessUnitId, category: dept.category },
+      create: { code: dept.code, name: dept.name, businessUnitId, category: dept.category },
     });
     departmentByCode.set(dept.code, record.id);
   }

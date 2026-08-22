@@ -2,6 +2,7 @@ import { requirePermissionOrRedirect } from "@/lib/rbac/guard";
 import { listBusinessUnits } from "@/lib/services/org.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { BusinessUnitCard } from "@/components/admin/business-units/business-unit-card";
+import { BusinessUnitFormSheet } from "@/components/admin/business-units/business-unit-form-sheet";
 
 export default async function BusinessUnitsPage() {
   await requirePermissionOrRedirect("departments.manage");
@@ -11,8 +12,9 @@ export default async function BusinessUnitsPage() {
     <div>
       <PageHeader
         title="Business Units"
-        description="The core legal entities of Masterways Group of Companies, per the CRM Blueprint."
+        description="The legal entities of Masterways Group of Companies — add a new one and it appears immediately on every customer-facing service picker."
         breadcrumbs={[{ label: "Administration" }, { label: "Business Units" }]}
+        actions={<BusinessUnitFormSheet />}
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {businessUnits.map((bu) => (

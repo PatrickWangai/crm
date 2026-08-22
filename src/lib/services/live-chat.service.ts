@@ -153,22 +153,19 @@ export async function listPublicVisitorThread(sessionId: string): Promise<LiveCh
 export async function sendPublicVisitorMessage(sessionId: string, content: string): Promise<LiveChatMessage> {
   const message = await prisma.visitorMessage.create({ data: { sessionId, from: "visitor", content } });
 
-  const care = resolveCareDepartment(null);
-  const careDept = await prisma.department.findUnique({ where: { code: care.code }, select: { id: true } });
-  if (careDept) {
-    const members = await getDepartmentMembers(careDept.id);
-    await Promise.all(
-      members.map((m) =>
-        createNotification({
-          userId: m.id,
-          type: "SYSTEM",
-          title: "A visitor is messaging on the help page",
-          message: content.length > 80 ? `${content.slice(0, 80)}…` : content,
-          relatedUrl: "/live-activity",
-        }),
-      ),
-    );
-  }
+  const care = await resolveCareDepartment(null);
+  const members = await getDepartmentMembers(care.id);
+  await Promise.all(
+    members.map((m) =>
+      createNotification({
+        userId: m.id,
+        type: "SYSTEM",
+        title: "A visitor is messaging on the help page",
+        message: content.length > 80 ? `${content.slice(0, 80)}…` : content,
+        relatedUrl: "/live-activity",
+      }),
+    ),
+  );
 
   return toVisitorThreadMessage(message);
 }

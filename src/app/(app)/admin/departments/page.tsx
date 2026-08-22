@@ -33,6 +33,7 @@ export default async function DepartmentsPage() {
                 <TableHead>Department</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Business unit</TableHead>
+                <TableHead>Ticket category</TableHead>
                 <TableHead>Staff</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -45,6 +46,7 @@ export default async function DepartmentsPage() {
                     <Badge variant="outline">{dept.code}</Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{dept.businessUnit?.name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{dept.category ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{dept._count.users}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
@@ -52,7 +54,7 @@ export default async function DepartmentsPage() {
                         mode="edit"
                         departmentId={dept.id}
                         businessUnits={businessUnits}
-                        defaultValues={{ name: dept.name, code: dept.code, businessUnitId: dept.businessUnitId }}
+                        defaultValues={{ name: dept.name, code: dept.code, businessUnitId: dept.businessUnitId, category: dept.category }}
                       />
                       <DeleteDepartmentButton departmentId={dept.id} name={dept.name} userCount={dept._count.users} />
                     </div>

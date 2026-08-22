@@ -7,14 +7,17 @@ import { toErrorResponse } from "@/lib/api/errors";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 
 // Same fields as the CRM's own /help form, but businessUnitCode (a stable,
-// publicly-knowable code like "MRE") instead of businessUnitId (an opaque
-// cuid only this database knows) — the caller can't look up IDs.
+// publicly-knowable code like "MRE", fetched live via
+// GET /api/public/business-units) instead of businessUnitId (an opaque
+// cuid only this database knows) — the caller can't look up IDs. Not a
+// fixed enum: business units are admin-creatable (see org.service.ts), so
+// one created after this deployed must still resolve here.
 const bridgePayloadSchema = z.object({
   firstName: z.string().trim().min(1).max(60),
   lastName: z.string().trim().min(1).max(60),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
   phone: z.string().trim().min(7).max(20).optional().or(z.literal("")),
-  businessUnitCode: z.enum(["MGC", "MRE", "MSL", "MIA", "MHL"]).optional(),
+  businessUnitCode: z.string().trim().max(20).optional(),
   category: z.string().trim().min(1).max(80),
   subject: z.string().trim().min(1).max(150),
   description: z.string().trim().min(1).max(2000),

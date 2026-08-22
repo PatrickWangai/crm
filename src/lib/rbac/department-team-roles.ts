@@ -5,10 +5,10 @@
  * able to grow their own team, not mint an account for a role that belongs
  * to a different department entirely.
  *
- * Only the six active, staffed departments are listed — Executive Office,
+ * Only the active, staffed departments are listed — Executive Office,
  * Internal Audit and Credit & Risk are governance bodies without a
  * self-service "add a teammate" workflow, same boundary already drawn for
- * ticket routing (see department-routing.ts's CUSTOMER_FACING_DEPARTMENT_CODES).
+ * ticket routing (see department-routing.ts — those have no `category`).
  */
 export const DEPARTMENT_TEAM_ROLES: Record<string, string[]> = {
   // Customer Care runs a Real Estate team and a SACCO team, not one shared
@@ -19,7 +19,11 @@ export const DEPARTMENT_TEAM_ROLES: Record<string, string[]> = {
   HR: ["hr-administration"],
   ICT: ["ict-administrator"],
   PROPERTY: ["property-manager", "regional-property-coordinator", "regional-manager", "assistant-property-manager"],
-  SALES: ["sales-marketing", "sacco-sales-marketing", "insurance-sales-marketing"],
+  // Sales & Marketing splits by business unit, same reasoning as Customer
+  // Care above — see the SALES -> SALES_MRE migration note in prisma/seed.ts.
+  SALES_MRE: ["sales-marketing"],
+  SALES_SACCO: ["sacco-sales-marketing"],
+  SALES_MIA: ["insurance-sales-marketing"],
 };
 
 /**

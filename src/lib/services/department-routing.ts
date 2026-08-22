@@ -1,68 +1,86 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import { TICKET_CATEGORIES } from "@/lib/validation/ticket";
 
-type TicketCategory = (typeof TICKET_CATEGORIES)[number];
-
-/**
- * Every category a customer can pick on the public "which service is this
- * about" form maps to exactly one department — this is the actual routing
- * decision, made the moment a request comes in. Each option names its
- * department directly (Finance, Property Management, Sales & Marketing,
- * HR & Administration, Technical Support -> ICT); Complaint and Customer
- * Care (the catch-all for anything without an obvious specialist home) and
- * Don't Know all go to Customer Care, who triage and reassign by hand if a
- * specific one turns out to belong elsewhere. Deliberately excludes
- * departments a customer has no business selecting directly — Board,
- * Executive, Internal Audit, SACCO Credit Committee — those are internal
- * oversight, not customer-facing services.
- *
- * The "CARE" entries below are a placeholder, not a real Department.code —
- * resolveCareDepartmentCode() below picks the actual business-unit-specific
- * Customer Care team (there's one per business unit, not one shared team;
- * see the CARE -> CARE_MRE migration note in prisma/seed.ts). Every other
- * department code here must match a real Department.code from prisma/seed.ts.
- */
-const CARE_PLACEHOLDER = "CARE";
-
-const CATEGORY_DEPARTMENTS: Record<TicketCategory, { code: string; name: string }> = {
-  Finance: { code: "FIN", name: "Finance" },
-  "Property Management": { code: "PROPERTY", name: "Property Management" },
-  "Sales & Marketing": { code: "SALES", name: "Sales & Marketing" },
-  "HR & Administration": { code: "HR", name: "HR & Administration" },
-  "Technical Support": { code: "ICT", name: "ICT" },
-  Complaint: { code: CARE_PLACEHOLDER, name: "Customer Care" },
-  "Customer Care": { code: CARE_PLACEHOLDER, name: "Customer Care" },
-  "Don't Know": { code: CARE_PLACEHOLDER, name: "Customer Care" },
-};
-
-const CARE_DEPARTMENTS_BY_BUSINESS_UNIT: Record<string, { code: string; name: string }> = {
-  MSL: { code: "CARE_SACCO", name: "Customer Care – SACCO" },
-};
-
-/**
- * Which Customer Care team a request lands in — MRE's is the default/
- * fallback for anything general, unclear, insurance-related, or from a
- * business unit without its own dedicated team (Housing, corporate/MGC, or
- * no business unit picked at all) — Customer Care only runs Real Estate
- * and SACCO teams, per how the company actually runs this.
- */
-export function resolveCareDepartment(businessUnitCode?: string | null): { code: string; name: string } {
-  if (businessUnitCode && CARE_DEPARTMENTS_BY_BUSINESS_UNIT[businessUnitCode]) {
-    return CARE_DEPARTMENTS_BY_BUSINESS_UNIT[businessUnitCode];
-  }
-  return { code: "CARE_MRE", name: "Customer Care – Real Estate" };
+export interface RoutedDepartment {
+  id: string;
+  code: string;
+  name: string;
 }
 
 /**
- * Every department code a ticket can legitimately land in — the same set
- * CATEGORY_DEPARTMENTS/resolveCareDepartment route into. Used to keep
- * department pickers on ticket forms (manual edit, forward-to-department)
- * from offering internal oversight departments (Board/Executive/Internal
- * Audit/SACCO Credit Committee) that have no staff able to act on a ticket
- * once it's there.
+ * The one department this whole system falls back to when nothing more
+ * specific is configured — the guarantee that ticket routing can never
+ * come back empty, even in a misconfigured state (e.g. an admin deletes
+ * every department for a category). Must always exist; prisma/seed.ts
+ * guarantees it.
  */
-export const CUSTOMER_FACING_DEPARTMENT_CODES: readonly string[] = ["FIN", "PROPERTY", "SALES", "HR", "ICT", "CARE_MRE", "CARE_SACCO"];
+const DEFAULT_CARE_DEPARTMENT_CODE = "CARE_MRE";
+
+/** The corporate/shared business unit — departments owned by it (Finance, HR, ICT today) serve every business unit, not just one. */
+const CORPORATE_BUSINESS_UNIT_CODE = "MGC";
+
+/**
+ * Complaint and Don't Know aren't real department specialties — both route
+ * through Customer Care, same as the "Customer Care" category itself.
+ */
+function routingCategoryFor(category: string): string {
+  if (category === "Complaint" || category === "Don't Know") return "Customer Care";
+  return category;
+}
+
+/**
+ * Which Customer Care team a request lands in: this business unit's own
+ * team if it has one (today: Real Estate and SACCO), otherwise the
+ * system-wide default — Customer Care only runs those two teams, so
+ * anything general, unclear, Insurance- or Housing-related lands here.
+ */
+export async function resolveCareDepartment(businessUnitId?: string | null): Promise<RoutedDepartment> {
+  if (businessUnitId) {
+    const exact = await prisma.department.findFirst({ where: { category: "Customer Care", businessUnitId } });
+    if (exact) return exact;
+  }
+  const fallback = await prisma.department.findUnique({ where: { code: DEFAULT_CARE_DEPARTMENT_CODE } });
+  if (!fallback) {
+    throw new Error(`Default Customer Care department "${DEFAULT_CARE_DEPARTMENT_CODE}" is missing — reseed the database.`);
+  }
+  return fallback;
+}
+
+/**
+ * Which department a ticket lands in — resolved live against whatever
+ * departments admins have actually configured (Department.category +
+ * Department.businessUnitId), not a fixed map. Checked in order:
+ *
+ *   1. A department that handles this exact category AND belongs to this
+ *      exact business unit (e.g. a SACCO Sales & Marketing ticket ->
+ *      "Sales & Marketing – SACCO").
+ *   2. A department that handles this category and is shared/corporate
+ *      (owned by Masterways Group of Companies) — Finance, HR and ICT work
+ *      this way today: one shared queue for every business unit.
+ *   3. This business unit's own Customer Care team (resolveCareDepartment).
+ *   4. The system-wide default Customer Care department — the last-resort
+ *      safety net so routing never comes back empty.
+ *
+ * Creating a department for a given (category, business unit) pair is how
+ * an admin adds a business-unit-specific team for something that's
+ * currently shared — nothing here needs to change to support that.
+ */
+async function findRoutedDepartment(category: string, businessUnitId?: string | null): Promise<RoutedDepartment> {
+  const routingCategory = routingCategoryFor(category);
+
+  if (businessUnitId) {
+    const exact = await prisma.department.findFirst({ where: { category: routingCategory, businessUnitId } });
+    if (exact) return exact;
+  }
+
+  const corporate = await prisma.businessUnit.findUnique({ where: { code: CORPORATE_BUSINESS_UNIT_CODE }, select: { id: true } });
+  if (corporate) {
+    const shared = await prisma.department.findFirst({ where: { category: routingCategory, businessUnitId: corporate.id } });
+    if (shared) return shared;
+  }
+
+  return resolveCareDepartment(businessUnitId);
+}
 
 /**
  * Purely advisory — never changes which department a ticket actually lands
@@ -85,23 +103,20 @@ const WORDING_HINTS: { departmentCode: string; departmentName: string; keywords:
 ];
 
 export interface DepartmentSuggestion {
-  /** The department this ticket's category deterministically belongs to — the actual routing decision. */
-  department: { code: string; name: string };
+  /** The department this ticket's category (and business unit) deterministically belongs to — the actual routing decision. */
+  department: RoutedDepartment;
   /** A different department the wording hints at, if any — review-only signal. */
   wordingHint: { code: string; name: string } | null;
 }
 
 /**
- * Category → department is a straight lookup; falls back to Customer Care
- * for anything unrecognized rather than leaving a ticket unrouted.
- * `businessUnitCode` (a BusinessUnit.code like "MSL", not an id) only
- * matters for the categories that land in Customer Care — it picks which
- * of the two CC teams; every other category's department is fixed
- * regardless of business unit.
+ * Category (+ business unit) -> department, resolved live from whatever
+ * departments actually exist; falls back to Customer Care for anything
+ * unrecognized rather than leaving a ticket unrouted. `businessUnitId` is
+ * a BusinessUnit.id — pass the ticket's own businessUnitId directly.
  */
-export function suggestDepartment(category: string, subject: string, description: string, businessUnitCode?: string | null): DepartmentSuggestion {
-  const raw = CATEGORY_DEPARTMENTS[category as TicketCategory] ?? CATEGORY_DEPARTMENTS["Customer Care"];
-  const department = raw.code === CARE_PLACEHOLDER ? resolveCareDepartment(businessUnitCode) : raw;
+export async function suggestDepartment(category: string, subject: string, description: string, businessUnitId?: string | null): Promise<DepartmentSuggestion> {
+  const department = await findRoutedDepartment(category, businessUnitId);
   const text = `${subject} ${description}`.toLowerCase();
   const hint = WORDING_HINTS.find((h) => h.departmentCode !== department.code && h.keywords.some((k) => text.includes(k)));
   return { department, wordingHint: hint ? { code: hint.departmentCode, name: hint.departmentName } : null };
@@ -110,18 +125,18 @@ export function suggestDepartment(category: string, subject: string, description
 export interface RoutingCheck {
   needsReview: boolean;
   message: string | null;
-  expectedDepartment: { code: string; name: string };
+  expectedDepartment: RoutedDepartment;
 }
 
-/** Compares a ticket's current department against where its category says it belongs, plus checks the wording hint — used to render the routing warning on the ticket list/detail pages. */
-export function checkRouting(
+/** Compares a ticket's current department against where its category (+ business unit) says it belongs, plus checks the wording hint — used to render the routing warning on the ticket list/detail pages. */
+export async function checkRouting(
   currentDepartmentCode: string | null | undefined,
   category: string,
   subject: string,
   description: string,
-  businessUnitCode?: string | null,
-): RoutingCheck {
-  const suggestion = suggestDepartment(category, subject, description, businessUnitCode);
+  businessUnitId?: string | null,
+): Promise<RoutingCheck> {
+  const suggestion = await suggestDepartment(category, subject, description, businessUnitId);
   const wrongDepartment = currentDepartmentCode !== suggestion.department.code;
 
   if (wrongDepartment) {
@@ -147,22 +162,21 @@ export function checkRouting(
 
 /**
  * Active staff who should be kept in the loop on a ticket: whoever's in the
- * department its category routes to, plus the business-unit-appropriate
- * Customer Care team always — they're the front desk and see every request
- * regardless of which department actually handles it. `businessUnitId` is a
- * BusinessUnit.id (what tickets actually store); resolved to a code here so
- * callers don't each need their own lookup.
+ * department its category (+ business unit) routes to, plus the
+ * business-unit-appropriate Customer Care team always — they're the front
+ * desk and see every request regardless of which department actually
+ * handles it. `businessUnitId` is a BusinessUnit.id (what tickets actually
+ * store).
  */
 export async function getTicketWatchers(category: string, subject: string, description: string, businessUnitId?: string | null) {
-  const businessUnit = businessUnitId ? await prisma.businessUnit.findUnique({ where: { id: businessUnitId }, select: { code: true } }) : null;
-  const { department } = suggestDepartment(category, subject, description, businessUnit?.code);
-  const careDepartment = resolveCareDepartment(businessUnit?.code);
-  const departmentCodes = Array.from(new Set([department.code, careDepartment.code]));
+  const { department } = await suggestDepartment(category, subject, description, businessUnitId);
+  const careDepartment = await resolveCareDepartment(businessUnitId);
+  const departmentIds = Array.from(new Set([department.id, careDepartment.id]));
 
   return prisma.user.findMany({
     where: {
       status: "ACTIVE",
-      department: { code: { in: departmentCodes } },
+      departmentId: { in: departmentIds },
     },
     select: { id: true, email: true, firstName: true, lastName: true },
     distinct: ["id"],

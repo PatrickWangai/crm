@@ -1,6 +1,5 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import type { BusinessUnitCode } from "@prisma/client";
 import { requireAnyPermission } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { parseCsv } from "@/lib/csv";
@@ -30,7 +29,7 @@ function requireCell(row: Record<string, string>, key: string): string {
 
 async function resolveBusinessUnitId(code: string): Promise<string> {
   if (!code) return "";
-  const bu = await prisma.businessUnit.findUnique({ where: { code: code.toUpperCase() as BusinessUnitCode } });
+  const bu = await prisma.businessUnit.findUnique({ where: { code: code.toUpperCase() } });
   if (!bu) throw new Error(`No business unit with code "${code}"`);
   return bu.id;
 }
