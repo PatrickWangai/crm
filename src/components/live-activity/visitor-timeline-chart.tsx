@@ -71,14 +71,22 @@ export function VisitorTimelineChart({ data }: { data: Point[] }) {
           />
         ))}
 
-        {data.map(
-          (d, i) =>
-            (i === 0 || i === data.length - 1 || i === Math.floor(data.length / 2)) && (
-              <text key={`label-${i}`} x={xFor(i)} y={HEIGHT - 6} textAnchor="middle" fontSize={10} fill="var(--muted-foreground)">
-                {d.label}
-              </text>
-            ),
-        )}
+        {data.map((d, i) => {
+          const isFirst = i === 0;
+          const isLast = i === data.length - 1;
+          const isMiddle = i === Math.floor(data.length / 2);
+          if (!isFirst && !isLast && !isMiddle) return null;
+          // Middle-anchoring the first/last labels on their exact point centers
+          // the text on the plot edge, so half of it runs past the viewBox and
+          // gets clipped — anchor those two inward instead so they grow away
+          // from the edge; the middle label has room on both sides already.
+          const textAnchor = isFirst ? "start" : isLast ? "end" : "middle";
+          return (
+            <text key={`label-${i}`} x={xFor(i)} y={HEIGHT - 6} textAnchor={textAnchor} fontSize={10} fill="var(--muted-foreground)">
+              {d.label}
+            </text>
+          );
+        })}
 
         {hoverIndex !== null && (
           <line x1={xFor(hoverIndex)} x2={xFor(hoverIndex)} y1={PAD_TOP} y2={PAD_TOP + plotHeight} stroke="var(--border)" strokeWidth={1} strokeDasharray="3 3" />
