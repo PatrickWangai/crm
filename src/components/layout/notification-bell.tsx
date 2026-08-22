@@ -38,6 +38,28 @@ function getAudioContext(): AudioContext | null {
   return sharedAudioContext;
 }
 
+/**
+ * Web Audio can only ever play in a tab the user is actually looking at —
+ * even fully "unlocked" (see the gesture-unlock effect below), browsers
+ * throttle or mute audio in background/unfocused tabs, since that's
+ * exactly the case autoplay policy exists to prevent. A synthesized tone
+ * can never reliably reach someone who's switched to another tab or app,
+ * which is the case a "you have a new notification" alert most needs to
+ * cover — so this fires a real OS-level notification (system sound
+ * included) instead, whenever the tab isn't the focused, visible thing on
+ * screen. Requires the browser's Notification permission, requested once
+ * on the same first-gesture unlock as the audio tone.
+ */
+function notifyIfNotLooking(title: string, body: string) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (!document.hidden && document.hasFocus()) return;
+  try {
+    new Notification(title, { body, icon: "/logo.jpeg" });
+  } catch {
+    // Some platforms restrict Notification construction outside a service worker — the in-tab tone/pulse still cover the focused case.
+  }
+}
+
 /** Short two-note attention chime, synthesized so no audio asset is needed — the "loud alert" equivalent of a delivery app's new-order chime. Silently no-ops if the context is still locked (no user gesture yet) or audio is unavailable. */
 function playAlertTone() {
   try {
@@ -87,11 +109,18 @@ export function NotificationBell({ notifications: initialNotifications, unreadCo
   // Unlocks audio on this user's very first interaction with the page
   // (click, keypress or touch anywhere) — doesn't matter what they click,
   // the browser just needs to see a genuine gesture before it'll let the
-  // shared AudioContext actually produce sound. Runs once per page load.
+  // shared AudioContext actually produce sound. Same gesture also prompts
+  // for Notification permission (also gesture-gated in most browsers) so
+  // notifyIfNotLooking above has a chance of being allowed later. Runs
+  // once per page load; if permission was already granted or denied in an
+  // earlier session, requestPermission() just resolves immediately.
   useEffect(() => {
     function unlock() {
       const ctx = getAudioContext();
       if (ctx && ctx.state === "suspended") void ctx.resume();
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        void Notification.requestPermission();
+      }
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
     }
@@ -110,6 +139,8 @@ export function NotificationBell({ notifications: initialNotifications, unreadCo
         playAlertTone();
         setAlerting(true);
         setTimeout(() => setAlerting(false), 2500);
+        const newest = snapshot.notifications.find((n) => !n.isRead);
+        if (newest) notifyIfNotLooking(newest.title, newest.message);
       }
       lastUnreadCount.current = snapshot.unreadCount;
       setNotifications(snapshot.notifications);
