@@ -13,7 +13,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AiAssistantProvider enabled={aiEnabled}>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* relative + overflow-hidden together, not overflow-hidden alone: without a
+          positioning context here, a stray `position: absolute` descendant (e.g.
+          Radix Select's hidden native <select>, used for form autofill) resolves
+          its containing block all the way up to <body>/<html> instead of this box —
+          overflow-hidden alone clips its paint but not its contribution to
+          document.scrollHeight, which let the whole page (sidebar included) become
+          wheel-scrollable and drag the fixed-height layout out of view. */}
+      <div className="relative flex h-screen w-full overflow-hidden bg-background">
         <Sidebar grantedPermissions={granted} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar />
