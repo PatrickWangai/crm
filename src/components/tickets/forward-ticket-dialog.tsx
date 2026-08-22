@@ -8,15 +8,32 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { forwardTicketAction, forwardTicketToMemberAction } from "@/app/(app)/tickets/actions";
-import type { Option } from "@/components/admin/users/user-form-sheet";
 
-interface DepartmentOption {
+interface BusinessUnitOption {
   id: string;
   name: string;
   code: string;
 }
 
+interface DepartmentOption {
+  id: string;
+  name: string;
+  code: string;
+  businessUnitId: string | null;
+}
+
+interface StaffOption {
+  id: string;
+  name: string;
+  jobTitle: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+}
+
 type Target = "department" | "member";
+
+/** Radix Select needs a non-empty value for every item — stands in for "no business unit chosen yet" (show every department). */
+const ALL_BUSINESS_UNITS = "__all__";
 
 /**
  * Hands a ticket off entirely — either to a different department's queue
@@ -28,32 +45,47 @@ type Target = "department" | "member";
  * there's already a named owner). Distinct from AssignTicketSelect, which
  * only reassigns within the ticket's current department and skips all of
  * this — no department move, no reopen, no forwarded-by note.
+ *
+ * Both pickers are scoped to ticket-handling staff/departments only (see
+ * listTicketHandlingStaffOptions/listTicketDepartmentOptions) — oversight
+ * roles like Board/CEO/Management/Internal Audit/Credit Committee never
+ * appear, since they have no queue to receive a ticket into. The
+ * department list is further narrowable by business unit — with 18+
+ * departments across four business units, an unfiltered flat list is
+ * unwieldy, so picking a business unit first narrows it down; leaving it
+ * unset shows every department, same as before.
  */
 export function ForwardTicketDialog({
   ticketId,
   currentDepartmentId,
   currentAssigneeId,
+  businessUnits,
   departments,
   staff,
 }: {
   ticketId: string;
   currentDepartmentId: string | null;
   currentAssigneeId: string | null;
+  businessUnits: BusinessUnitOption[];
   departments: DepartmentOption[];
-  staff: Option[];
+  staff: StaffOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState<Target>("department");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [businessUnitId, setBusinessUnitId] = useState(ALL_BUSINESS_UNITS);
   const [departmentId, setDepartmentId] = useState("");
   const [memberId, setMemberId] = useState("");
   const [note, setNote] = useState("");
 
-  const departmentOptions = departments.filter((d) => d.id !== currentDepartmentId);
+  const departmentOptions = departments
+    .filter((d) => d.id !== currentDepartmentId)
+    .filter((d) => businessUnitId === ALL_BUSINESS_UNITS || d.businessUnitId === businessUnitId);
   const memberOptions = staff.filter((s) => s.id !== currentAssigneeId);
 
   function reset() {
+    setBusinessUnitId(ALL_BUSINESS_UNITS);
     setDepartmentId("");
     setMemberId("");
     setNote("");
@@ -117,21 +149,45 @@ export function ForwardTicketDialog({
         </Tabs>
 
         {target === "department" ? (
-          <div className="space-y-1.5">
-            <Label htmlFor="forwardDepartment">Department</Label>
-            <Select value={departmentId} onValueChange={setDepartmentId}>
-              <SelectTrigger id="forwardDepartment" className="w-full">
-                <SelectValue placeholder="Choose a department" />
-              </SelectTrigger>
-              <SelectContent>
-                {departmentOptions.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="forwardBusinessUnit">Business unit</Label>
+              <Select
+                value={businessUnitId}
+                onValueChange={(v) => {
+                  setBusinessUnitId(v);
+                  setDepartmentId("");
+                }}
+              >
+                <SelectTrigger id="forwardBusinessUnit" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_BUSINESS_UNITS}>All business units</SelectItem>
+                  {businessUnits.map((bu) => (
+                    <SelectItem key={bu.id} value={bu.id}>
+                      {bu.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="forwardDepartment">Department</Label>
+              <Select value={departmentId} onValueChange={setDepartmentId}>
+                <SelectTrigger id="forwardDepartment" className="w-full">
+                  <SelectValue placeholder="Choose a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departmentOptions.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
         ) : (
           <div className="space-y-1.5">
             <Label htmlFor="forwardMember">Team member</Label>
@@ -143,6 +199,7 @@ export function ForwardTicketDialog({
                 {memberOptions.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
+                    {s.departmentName ? ` — ${s.departmentName}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

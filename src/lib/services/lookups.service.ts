@@ -19,13 +19,15 @@ export async function listDepartmentOptions() {
  * Credit Committee), which have no category and no staff able to act on a
  * ticket. Use this instead of listDepartmentOptions() anywhere a user picks
  * a ticket's department (manual create/edit, forward-to-department).
+ * Includes businessUnitId so callers can filter the list by business unit
+ * (e.g. the Forward dialog's department tab).
  */
 export async function listTicketDepartmentOptions() {
   await requireAuth();
   return prisma.department.findMany({
     where: { category: { not: null } },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, code: true },
+    select: { id: true, name: true, code: true, businessUnitId: true },
   });
 }
 
@@ -54,6 +56,24 @@ export async function listUserOptions() {
     select: { id: true, firstName: true, lastName: true, jobTitle: true },
   });
   return users.map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}`, jobTitle: u.jobTitle }));
+}
+
+/**
+ * Active staff who actually belong to a ticket-handling department (any
+ * department with a category — see listTicketDepartmentOptions above) —
+ * excludes Board/CEO/Management/Internal Audit/Credit Committee and anyone
+ * else sitting in an oversight department with no tickets to receive.
+ * Use this instead of listUserOptions() anywhere a user picks a specific
+ * person to hand a ticket to (e.g. the Forward dialog's team-member tab).
+ */
+export async function listTicketHandlingStaffOptions() {
+  await requireAuth();
+  const users = await prisma.user.findMany({
+    where: { status: "ACTIVE", department: { category: { not: null } } },
+    orderBy: { firstName: "asc" },
+    select: { id: true, firstName: true, lastName: true, jobTitle: true, departmentId: true, department: { select: { name: true } } },
+  });
+  return users.map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}`, jobTitle: u.jobTitle, departmentId: u.departmentId, departmentName: u.department?.name ?? null }));
 }
 
 export async function listStakeholderOptions() {

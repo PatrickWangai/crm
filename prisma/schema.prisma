@@ -365,6 +365,7 @@ model User {
   createdTemplates     CommunicationTemplate[]
   transfersInitiated   TransferRequest[]       @relation("TransferFrom")
   transfersReceived    TransferRequest[]       @relation("TransferTo")
+  visitorMessages      VisitorMessage[]
 
   @@index([roleId])
   @@index([departmentId])
@@ -1156,6 +1157,11 @@ model VisitorMessage {
   from      String
   content   String
   createdAt DateTime @default(now())
+  /// Which staff member sent this (only set when from = "staff") — lets
+  /// sendPublicVisitorMessage notify whoever's actually in the
+  /// conversation instead of always blasting the whole Customer Care team.
+  staffId   String?
+  staff     User?    @relation(fields: [staffId], references: [id])
 
   @@index([sessionId])
   @@map("visitor_messages")

@@ -18,6 +18,12 @@ let nextId = 1;
 
 const QUICK_PROMPTS = ["my tickets", "which tickets are at risk", "how do I add a team member"];
 
+const INTRO_DISMISSED_KEY = "mw_staff_assistant_intro_dismissed";
+const INTRO_DELAY_MS = 3_000;
+const INTRO_AUTO_HIDE_MS = 8_000;
+const SUPPORT_EMAIL = "gm70291691@gmail.com";
+const SUPPORT_PHONE = "+254799277412";
+
 /**
  * Staff-facing assistant, available on every authenticated page — helps
  * with navigation questions and can perform real actions (forward/assign/
@@ -28,12 +34,35 @@ const QUICK_PROMPTS = ["my tickets", "which tickets are at risk", "how do I add 
  */
 export function StaffAssistant() {
   const [open, setOpen] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // A one-time, self-dismissing intro so staff learn the assistant exists
+  // and what it can do, plus who to reach for platform changes — shown
+  // once per browser, same pattern as the customer-facing chatbot's invite
+  // bubble (see help-chatbot.tsx).
+  useEffect(() => {
+    if (localStorage.getItem(INTRO_DISMISSED_KEY)) return;
+    const showTimer = setTimeout(() => setShowIntro(true), INTRO_DELAY_MS);
+    return () => clearTimeout(showTimer);
+  }, []);
+
+  function dismissIntro() {
+    setShowIntro(false);
+    localStorage.setItem(INTRO_DISMISSED_KEY, "1");
+  }
+
+  useEffect(() => {
+    if (!showIntro) return;
+    const hideTimer = setTimeout(dismissIntro, INTRO_AUTO_HIDE_MS);
+    return () => clearTimeout(hideTimer);
+  }, [showIntro]);
+
   function toggleOpen() {
+    dismissIntro();
     const next = !open;
     if (next && messages.length === 0) {
       setMessages([{ id: nextId++, from: "bot", text: "Hi! Ask me to do something (\"forward TKT-000123 to Finance\") or how to find a feature." }]);
@@ -72,14 +101,14 @@ export function StaffAssistant() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="CRM assistant"
+            aria-label="Patrick's Assistant"
             className="flex h-[32rem] w-[26rem] max-h-[85vh] max-w-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
           >
             <div className="flex items-center justify-between border-b border-border bg-primary/5 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="size-4 text-primary" />
                 <div>
-                  <p className="text-sm font-semibold">CRM Assistant</p>
+                  <p className="text-sm font-semibold">Patrick&apos;s Assistant</p>
                   <p className="text-[10px] text-muted-foreground">Rule-based assistant — not a live AI model</p>
                 </div>
               </div>
@@ -143,6 +172,34 @@ export function StaffAssistant() {
                 <Send className="size-4" />
               </Button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showIntro && !open && (
+        <div className="fixed bottom-20 right-4 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-3 shadow-lg sm:bottom-24 sm:right-6 sm:max-w-72">
+          <div className="flex items-start gap-2">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div className="space-y-1.5 text-sm">
+              <p className="font-medium">Meet Patrick&apos;s Assistant</p>
+              <p className="text-xs text-muted-foreground">
+                Ask it to find a feature or handle a quick task for you — e.g. &quot;forward TKT-000123 to Finance&quot; or &quot;my tickets&quot;.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Need a platform change or update? Contact Patrick at{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+                  {SUPPORT_EMAIL}
+                </a>{" "}
+                or{" "}
+                <a href={`tel:${SUPPORT_PHONE}`} className="text-primary hover:underline">
+                  {SUPPORT_PHONE}
+                </a>
+                .
+              </p>
+            </div>
+            <button onClick={dismissIntro} className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-secondary" aria-label="Dismiss">
+              <X className="size-3.5" />
+            </button>
           </div>
         </div>
       )}

@@ -139,8 +139,8 @@ export async function listStaffVisitorThread(sessionId: string): Promise<LiveCha
 }
 
 export async function sendStaffMessageToVisitor(sessionId: string, content: string): Promise<LiveChatMessage> {
-  await requireAnyPermission(["live_activity.view"]);
-  const message = await prisma.visitorMessage.create({ data: { sessionId, from: "staff", content: content.trim() } });
+  const actor = await requireAnyPermission(["live_activity.view"]);
+  const message = await prisma.visitorMessage.create({ data: { sessionId, from: "staff", content: content.trim(), staffId: actor.id } });
   return toVisitorThreadMessage(message);
 }
 
@@ -149,14 +149,30 @@ export async function listPublicVisitorThread(sessionId: string): Promise<LiveCh
   return rows.map(toVisitorThreadMessage);
 }
 
-/** Visitor sends a message before any ticket exists — notifies Customer Care – Real Estate, the same default front desk anonymous/undifferentiated traffic already lands on elsewhere (see resolveCareDepartment). */
+/**
+ * Visitor sends a message — notifies whoever's actually in this
+ * conversation: any staff member who has already replied in this session
+ * (so the person actively chatting hears about it, not just the front
+ * desk), or Customer Care – Real Estate as the default front desk if
+ * nobody's engaged yet (see resolveCareDepartment).
+ */
 export async function sendPublicVisitorMessage(sessionId: string, content: string): Promise<LiveChatMessage> {
   const message = await prisma.visitorMessage.create({ data: { sessionId, from: "visitor", content } });
 
-  const care = await resolveCareDepartment(null);
-  const members = await getDepartmentMembers(care.id);
+  const priorStaffIds = await prisma.visitorMessage.findMany({
+    where: { sessionId, from: "staff", staffId: { not: null } },
+    select: { staffId: true },
+    distinct: ["staffId"],
+  });
+  const engagedIds = priorStaffIds.map((r) => r.staffId).filter((id): id is string => !!id);
+
+  const recipients =
+    engagedIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: engagedIds }, status: "ACTIVE" }, select: { id: true, email: true, firstName: true, lastName: true } })
+      : await getDepartmentMembers((await resolveCareDepartment(null)).id);
+
   await Promise.all(
-    members.map((m) =>
+    recipients.map((m) =>
       createNotification({
         userId: m.id,
         type: "SYSTEM",
