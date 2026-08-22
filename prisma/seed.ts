@@ -30,6 +30,12 @@ const BUSINESS_UNITS: { code: string; name: string; description: string }[] = [
 // handles, scoped to `businessUnit`. Oversight departments (Executive,
 // Internal Audit, Credit & Risk) take no tickets, so their category is
 // null and department-routing.ts's lookups never resolve to them.
+//
+// SALES_MHL/PROPERTY_SACCO/PROPERTY_MIA/PROPERTY_MHL/CARE_MIA/CARE_MHL
+// (below the MSL/PROPERTY line) are demo-only placeholders filling in the
+// remaining category x business-unit gaps — added for full demo coverage
+// until the real company roster replaces the seeded accounts entirely, at
+// which point these should be reviewed rather than assumed permanent.
 const DEPARTMENTS: { code: string; name: string; businessUnit: string; category: string | null }[] = [
   { code: "EXEC", name: "Executive Office", businessUnit: "MGC", category: null },
   { code: "AUDIT", name: "Internal Audit", businessUnit: "MGC", category: null },
@@ -43,6 +49,12 @@ const DEPARTMENTS: { code: string; name: string; businessUnit: string; category:
   { code: "ICT", name: "ICT Department", businessUnit: "MGC", category: "Technical Support" },
   { code: "PROPERTY", name: "Property Management", businessUnit: "MRE", category: "Property Management" },
   { code: "CREDIT", name: "Credit & Risk", businessUnit: "MSL", category: null },
+  { code: "SALES_MHL", name: "Sales & Marketing – Housing", businessUnit: "MHL", category: "Sales & Marketing" },
+  { code: "PROPERTY_SACCO", name: "Property Management – SACCO", businessUnit: "MSL", category: "Property Management" },
+  { code: "PROPERTY_MIA", name: "Property Management – Insurance", businessUnit: "MIA", category: "Property Management" },
+  { code: "PROPERTY_MHL", name: "Property Management – Housing", businessUnit: "MHL", category: "Property Management" },
+  { code: "CARE_MIA", name: "Customer Care – Insurance", businessUnit: "MIA", category: "Customer Care" },
+  { code: "CARE_MHL", name: "Customer Care – Housing", businessUnit: "MHL", category: "Customer Care" },
 ];
 
 // email -> reportingTo email
@@ -63,6 +75,12 @@ const REPORTING_LINES: Record<string, string> = {
   "sacco-credit-committee@masterways.co.ke": "management@masterways.co.ke",
   "finance@masterways.co.ke": "cfo@masterways.co.ke",
   "internal-auditor@masterways.co.ke": "board-of-directors@masterways.co.ke",
+  "housing-sales-marketing@masterways.co.ke": "ceo@masterways.co.ke",
+  "sacco-property-manager@masterways.co.ke": "management@masterways.co.ke",
+  "insurance-property-manager@masterways.co.ke": "ceo@masterways.co.ke",
+  "housing-property-manager@masterways.co.ke": "ceo@masterways.co.ke",
+  "customer-care-insurance@masterways.co.ke": "ceo@masterways.co.ke",
+  "customer-care-housing@masterways.co.ke": "ceo@masterways.co.ke",
 };
 
 const SLA_POLICIES: {

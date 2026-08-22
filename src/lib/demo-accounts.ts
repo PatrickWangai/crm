@@ -44,4 +44,19 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   // but the end reshuffles every account after them and collides with
   // already-assigned employeeIds.
   { firstName: "Head of", lastName: "Customer Care (SACCO)", email: "customer-care-sacco@masterways.co.ke", password: "Qf82!wznTr5", roleSlug: "customer-care", departmentCode: "CARE_SACCO", businessUnitCode: "MSL", jobTitle: "Customer Care Agent – SACCO" },
+  // Demo-only placeholders filling in the remaining category x business-unit
+  // gaps (see prisma/seed.ts's DEPARTMENTS comment) — for full demo coverage
+  // until the real company roster replaces this file entirely. Reuse the
+  // existing role slugs (sales-marketing, property-manager, customer-care)
+  // rather than minting new ones: they're already business-unit-agnostic —
+  // sales-marketing's own description already covers "MRE / MHL", and
+  // customer-care's covers "across all business units" — so department
+  // membership (departmentCode below), not the role slug, is what actually
+  // ties each account to its business unit.
+  { firstName: "Head of", lastName: "Housing Sales", email: "housing-sales-marketing@masterways.co.ke", password: "7tgL26TDJ%J", roleSlug: "sales-marketing", departmentCode: "SALES_MHL", businessUnitCode: "MHL", jobTitle: "Housing Sales & Marketing Officer" },
+  { firstName: "Head of", lastName: "Property Management (SACCO)", email: "sacco-property-manager@masterways.co.ke", password: "4k#aU4bf5Hn", roleSlug: "property-manager", departmentCode: "PROPERTY_SACCO", businessUnitCode: "MSL", jobTitle: "Property Manager – SACCO" },
+  { firstName: "Head of", lastName: "Property Management (Insurance)", email: "insurance-property-manager@masterways.co.ke", password: "U4#r43ujeFe", roleSlug: "property-manager", departmentCode: "PROPERTY_MIA", businessUnitCode: "MIA", jobTitle: "Property Manager – Insurance" },
+  { firstName: "Head of", lastName: "Property Management (Housing)", email: "housing-property-manager@masterways.co.ke", password: "TkRnE%236p9", roleSlug: "property-manager", departmentCode: "PROPERTY_MHL", businessUnitCode: "MHL", jobTitle: "Property Manager – Housing" },
+  { firstName: "Head of", lastName: "Customer Care (Insurance)", email: "customer-care-insurance@masterways.co.ke", password: "!XZ5gug9365", roleSlug: "customer-care", departmentCode: "CARE_MIA", businessUnitCode: "MIA", jobTitle: "Customer Care Agent – Insurance" },
+  { firstName: "Head of", lastName: "Customer Care (Housing)", email: "customer-care-housing@masterways.co.ke", password: "if3$5jDhA77", roleSlug: "customer-care", departmentCode: "CARE_MHL", businessUnitCode: "MHL", jobTitle: "Customer Care Agent – Housing" },
 ];

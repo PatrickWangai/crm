@@ -24,6 +24,15 @@ export const DEPARTMENT_TEAM_ROLES: Record<string, string[]> = {
   SALES_MRE: ["sales-marketing"],
   SALES_SACCO: ["sacco-sales-marketing"],
   SALES_MIA: ["insurance-sales-marketing"],
+  // Demo-only departments filling in the remaining category x business-unit
+  // gaps (see prisma/seed.ts's DEPARTMENTS comment) — reuse the same
+  // business-unit-agnostic role slugs as their MRE/SACCO/Insurance peers.
+  SALES_MHL: ["sales-marketing"],
+  PROPERTY_SACCO: ["property-manager"],
+  PROPERTY_MIA: ["property-manager"],
+  PROPERTY_MHL: ["property-manager"],
+  CARE_MIA: ["customer-care"],
+  CARE_MHL: ["customer-care"],
 };
 
 /**
