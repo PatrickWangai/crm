@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getLiveActivitySnapshot, type LiveActivitySnapshot } from "@/lib/services/live-activity.service";
+import { getLiveActivitySnapshot, getLiveVisitorAlertCount, type LiveActivitySnapshot } from "@/lib/services/live-activity.service";
 import {
   listStaffLiveChatThread,
   sendStaffLiveChatMessage,
@@ -14,6 +14,11 @@ import type { LiveChatMessage } from "@/lib/validation/public-support";
 
 export async function refreshLiveActivityAction(): Promise<LiveActivitySnapshot> {
   return getLiveActivitySnapshot();
+}
+
+/** Feeds the sidebar's live badge on the Live Activity nav item (see nav-links.tsx) — polled from every authenticated page, not just Live Activity itself. */
+export async function getLiveVisitorAlertCountAction(): Promise<number> {
+  return getLiveVisitorAlertCount();
 }
 
 export async function fetchStaffChatThreadAction(ticketId: string): Promise<LiveChatMessage[]> {

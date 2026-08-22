@@ -104,3 +104,34 @@ export async function getLiveActivitySnapshot(): Promise<LiveActivitySnapshot> {
     })),
   };
 }
+
+/**
+ * Cheap, frequently-pollable count of live visitors this account can
+ * currently see — same scoping as getLiveActivitySnapshot above ("Chat
+ * with anyone": ticket-less visitors visible to every department,
+ * ticketed ones scoped to the ticket's own department), but skips the
+ * timeline/chatsToday work that snapshot does and only looks at the last
+ * LIVE_WINDOW_MS instead of the whole day, since this only feeds the
+ * sidebar's live badge (see nav-links.tsx) rather than the full page.
+ */
+export async function getLiveVisitorAlertCount(): Promise<number> {
+  const actor = await requirePermission("live_activity.view");
+  if (!actor.department) return 0;
+
+  const departmentId = actor.department.id;
+  const liveSince = new Date(Date.now() - LIVE_WINDOW_MS);
+
+  const liveVisits = await prisma.helpPageVisit.findMany({
+    where: { lastSeenAt: { gte: liveSince } },
+    select: { ticketNumber: true },
+  });
+  if (liveVisits.length === 0) return 0;
+
+  const ticketNumbers = Array.from(new Set(liveVisits.map((v) => v.ticketNumber).filter((t): t is string => !!t)));
+  const tickets = ticketNumbers.length
+    ? await prisma.ticket.findMany({ where: { ticketNumber: { in: ticketNumbers } }, select: { ticketNumber: true, departmentId: true } })
+    : [];
+  const departmentByTicket = new Map(tickets.map((t) => [t.ticketNumber, t.departmentId]));
+
+  return liveVisits.filter((v) => (v.ticketNumber ? departmentByTicket.get(v.ticketNumber) === departmentId : true)).length;
+}
