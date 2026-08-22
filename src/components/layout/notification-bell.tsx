@@ -22,24 +22,47 @@ export interface NotificationItem {
 
 const POLL_INTERVAL_MS = 20_000;
 
-/** Short attention tone, synthesized so no audio asset is needed — the "loud alert" equivalent of a delivery app's new-order chime. Silently no-ops if the browser blocks audio before any user gesture. */
+// Browsers refuse to let a freshly-created AudioContext actually produce
+// sound until it's been resumed inside a genuine user gesture (click/key/
+// touch) — one created from a setInterval callback stays permanently
+// "suspended" with no error thrown, so it silently never plays. A single
+// context, created and resumed once on the page's first interaction (see
+// the effect below) and reused from then on, stays "running" for the rest
+// of the session, so later timer-triggered alerts work.
+let sharedAudioContext: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+  const AudioContextClass = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!sharedAudioContext) sharedAudioContext = new AudioContextClass();
+  return sharedAudioContext;
+}
+
+/** Short two-note attention chime, synthesized so no audio asset is needed — the "loud alert" equivalent of a delivery app's new-order chime. Silently no-ops if the context is still locked (no user gesture yet) or audio is unavailable. */
 function playAlertTone() {
   try {
-    const AudioContextClass = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-    osc.onended = () => ctx.close();
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") void ctx.resume();
+
+    const notes = [
+      { freq: 880, start: 0 },
+      { freq: 1108, start: 0.12 },
+    ];
+    for (const { freq, start } of notes) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t0 = ctx.currentTime + start;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.35);
+    }
   } catch {
     // Audio unavailable/blocked — the visual pulse below still conveys the alert.
   }
@@ -60,6 +83,25 @@ export function NotificationBell({ notifications: initialNotifications, unreadCo
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [alerting, setAlerting] = useState(false);
   const lastUnreadCount = useRef(initialUnreadCount);
+
+  // Unlocks audio on this user's very first interaction with the page
+  // (click, keypress or touch anywhere) — doesn't matter what they click,
+  // the browser just needs to see a genuine gesture before it'll let the
+  // shared AudioContext actually produce sound. Runs once per page load.
+  useEffect(() => {
+    function unlock() {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") void ctx.resume();
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    }
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   useEffect(() => {
     const id = setInterval(async () => {
