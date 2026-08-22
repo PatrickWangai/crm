@@ -4,7 +4,7 @@ import type { TicketPriority, TicketStatus } from "@prisma/client";
 import { requireAuth, requireAnyPermission, hasPermission, ForbiddenError } from "@/lib/rbac/guard";
 import { recordAudit } from "@/lib/audit/log";
 import { createNotification } from "@/lib/services/notification.service";
-import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded } from "@/lib/notifications/ticket-events";
+import { notifyTicketAccepted, notifyTicketCompleted, notifyTicketForwarded, notifyTicketForwardedToMember } from "@/lib/notifications/ticket-events";
 import { notifyCustomerReceived, notifyCustomerStageChanged } from "@/lib/notifications/customer-events";
 import { getSupportStage } from "@/lib/support-stage";
 import { resolveCareDepartment, getDepartmentMembers } from "@/lib/services/department-routing";
@@ -334,6 +334,62 @@ export async function forwardTicketToDepartment(id: string, departmentId: string
   });
 
   await notifyTicketForwarded(ticket, department.id, department.name, actor, note);
+
+  return ticket;
+}
+
+/**
+ * Hands a ticket directly to a named person, rather than a whole
+ * department's queue (see forwardTicketToDepartment above) — for when the
+ * sender already knows exactly who should take it, possibly in a different
+ * department than the ticket currently sits in. Moves the ticket's
+ * department to match the recipient's own (so it shows up in the right
+ * queue/reports) and marks it Assigned directly, skipping the anonymous
+ * Accept step forwardTicketToDepartment resets to — the recipient is named,
+ * there's nothing to "accept" from a queue. Completed/Closed tickets keep
+ * their status (same rule as forwardTicketToDepartment): forwarding closed
+ * work reassigns ownership without silently reopening it.
+ */
+export async function forwardTicketToMember(id: string, userId: string, note: string | null) {
+  const actor = await requireAnyPermission(["tickets.assign"]);
+  const before = await prisma.ticket.findUniqueOrThrow({ where: { id } });
+  const member = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { id: true, firstName: true, lastName: true, email: true, status: true, departmentId: true },
+  });
+
+  if (member.status !== "ACTIVE") {
+    throw new Error(`${member.firstName} ${member.lastName} isn't an active staff member — pick someone else.`);
+  }
+
+  const memberName = `${member.firstName} ${member.lastName}`;
+  const reopen = before.status !== "COMPLETED" && before.status !== "CLOSED";
+
+  const ticket = await prisma.ticket.update({
+    where: { id },
+    data: {
+      assignedToId: member.id,
+      departmentId: member.departmentId ?? before.departmentId,
+      status: reopen ? "ASSIGNED" : undefined,
+    },
+  });
+
+  if (note) {
+    await prisma.ticketComment.create({
+      data: { ticketId: id, userId: actor.id, comment: `Forwarded to ${memberName}: ${note}`, isInternal: true },
+    });
+  }
+
+  await recordAudit({
+    userId: actor.id,
+    action: "ticket.forwarded",
+    entityType: "Ticket",
+    entityId: id,
+    previousValue: { departmentId: before.departmentId, assignedToId: before.assignedToId },
+    newValue: { departmentId: ticket.departmentId, assignedToId: member.id },
+  });
+
+  await notifyTicketForwardedToMember(ticket, member, actor, note);
 
   return ticket;
 }

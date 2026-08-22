@@ -15,6 +15,7 @@ import {
   acceptTicket,
   assignTicket,
   forwardTicketToDepartment,
+  forwardTicketToMember,
   addTicketComment,
   createTicket,
   deleteTicket,
@@ -106,6 +107,17 @@ export async function acceptTicketAction(id: string, assignedToId: string, dueAt
 export async function forwardTicketAction(id: string, departmentId: string, note: string | null): Promise<{ error?: string }> {
   try {
     await forwardTicketToDepartment(id, departmentId, note);
+    revalidatePath("/tickets");
+    revalidatePath(`/tickets/${id}`);
+    return {};
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
+}
+
+export async function forwardTicketToMemberAction(id: string, userId: string, note: string | null): Promise<{ error?: string }> {
+  try {
+    await forwardTicketToMember(id, userId, note);
     revalidatePath("/tickets");
     revalidatePath(`/tickets/${id}`);
     return {};

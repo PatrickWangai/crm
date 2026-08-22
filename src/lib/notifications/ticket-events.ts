@@ -107,6 +107,35 @@ export async function notifyTicketForwarded(
   );
 }
 
+/** Fires when a ticket is forwarded directly to one team member (rather than a whole department) — same shape as notifyTicketForwarded above, just a single recipient instead of a department's whole roster. */
+export async function notifyTicketForwardedToMember(
+  ticket: WatchedTicket,
+  member: { id: string; firstName: string; lastName: string; email: string },
+  forwardedBy: { id: string; firstName: string; lastName: string },
+  note: string | null,
+) {
+  if (member.id === forwardedBy.id) return;
+  await createNotification({
+    userId: member.id,
+    type: "TICKET_ASSIGNED",
+    title: "Ticket forwarded to you",
+    message: `${ticket.ticketNumber}: ${ticket.subject} — from ${forwardedBy.firstName} ${forwardedBy.lastName}`,
+    relatedUrl: `/tickets/${ticket.id}`,
+  });
+  if (member.email) {
+    await sendEmail({
+      to: member.email,
+      subject: `Forwarded to you: ${ticket.ticketNumber} — ${ticket.subject}`,
+      html: emailShell(
+        `A request was forwarded to you`,
+        `<p style="color:#475467; font-size:14px; line-height:1.5;"><strong>${ticket.ticketNumber}</strong> — ${ticket.subject}<br/>Forwarded by ${forwardedBy.firstName} ${forwardedBy.lastName}.${note ? `<br/><br/>"${note}"` : ""}</p>`,
+        `/tickets/${ticket.id}`,
+        "View ticket",
+      ),
+    });
+  }
+}
+
 /** Fires when a ticket is marked Completed — the "if finished" moment. */
 export async function notifyTicketCompleted(ticket: WatchedTicket, completedBy: { id: string; firstName: string; lastName: string }) {
   const watchers = (await getTicketWatchers(ticket.category, ticket.subject, ticket.description, ticket.businessUnitId)).filter((w) => w.id !== completedBy.id);
