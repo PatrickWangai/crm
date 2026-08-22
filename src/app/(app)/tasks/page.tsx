@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAnyPermissionOrRedirect, hasPermission } from "@/lib/rbac/guard";
-import { listTasks, listTasksForBoard } from "@/lib/services/task.service";
+import { listTasks, listTasksForBoard, listCrossDepartmentAssignedTasks } from "@/lib/services/task.service";
 import { listDepartmentOptions, listUserOptions } from "@/lib/services/lookups.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,6 +12,7 @@ import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskFormSheet } from "@/components/tasks/task-form-sheet";
 import { TaskKanban } from "@/components/tasks/task-kanban";
 import { CheckOverdueTasksButton } from "@/components/tasks/check-overdue-tasks-button";
+import { CrossDepartmentTasksPanel } from "@/components/tasks/cross-department-tasks-panel";
 import { initials } from "@/lib/utils";
 import type { TaskPriority, TaskStatus } from "@prisma/client";
 import { CheckSquare } from "lucide-react";
@@ -29,11 +30,11 @@ export default async function TasksPage({
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
   const view = sp.view === "kanban" ? "kanban" : "table";
 
-  const [departments, staff] = await Promise.all([listDepartmentOptions(), listUserOptions()]);
+  const [departments, staff, crossDepartmentTasks] = await Promise.all([listDepartmentOptions(), listUserOptions(), listCrossDepartmentAssignedTasks()]);
   const canCreate = hasPermission(user, "tasks.create");
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="Tasks"
         description="Follow-ups and action items across the organization."
@@ -44,6 +45,8 @@ export default async function TasksPage({
           </div>
         }
       />
+
+      <CrossDepartmentTasksPanel tasks={crossDepartmentTasks} />
 
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
         <TaskFilters view={view} />

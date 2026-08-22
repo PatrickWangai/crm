@@ -74,6 +74,35 @@ export async function listTasksForBoard() {
   });
 }
 
+/**
+ * Open tasks assigned to the caller by someone in a different department —
+ * a distinct signal from "my tasks" generally: these are work someone else's
+ * department handed you, not something you or your own team queued up.
+ * Task.departmentId is a free field the creator can point at any
+ * department regardless of who's actually assigned, so "cross-department"
+ * is judged by comparing the creator's own department to the caller's, not
+ * by the task's departmentId.
+ */
+export async function listCrossDepartmentAssignedTasks() {
+  const user = await requireAuth();
+  if (!user.departmentId) return [];
+
+  return prisma.task.findMany({
+    where: {
+      assigneeId: user.id,
+      status: { not: "COMPLETED" },
+      createdById: { not: null },
+      createdBy: { departmentId: { not: user.departmentId } },
+    },
+    include: {
+      createdBy: { select: { id: true, firstName: true, lastName: true, department: { select: { name: true } } } },
+      department: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+}
+
 async function assertCanViewTask(taskId: string) {
   const user = await requireAnyPermission(VIEW_PERMS);
   if (hasPermission(user, "tasks.view_all")) return user;
