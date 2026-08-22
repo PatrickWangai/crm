@@ -7,12 +7,6 @@ import { requirePermission } from "@/lib/rbac/guard";
 // closed the tab goes quiet for good within one missed heartbeat of this.
 const LIVE_WINDOW_MS = 60_000;
 
-// Anonymous browsing that hasn't produced a ticket yet (no ticketNumber on
-// the visit) has no department of its own — it defaults to whichever
-// Customer Care team is the general front desk, same fallback used for
-// undifferentiated ticket routing (see department-routing.ts).
-const CARE_DEPARTMENT_CODES = ["CARE_MRE", "CARE_SACCO"];
-
 export interface LiveActivitySnapshot {
   liveVisitorCount: number;
   visitorsTodayCount: number;
@@ -40,19 +34,19 @@ const TIMELINE_BUCKET_MS = 5 * 60_000;
 const TIMELINE_BUCKETS = 12; // last 60 minutes
 
 /**
- * Every customer-facing department gets this view now, not just Customer
- * Care — each department only sees visitors/chats tied to its own tickets.
- * HelpPageVisit has no direct departmentId (it's keyed by an anonymous
- * sessionId, not a ticket), so scoping works by joining through
- * ticketNumber -> Ticket.departmentId; a visit with no ticket yet is only
- * visible to the relevant Customer Care team, since that's the default
- * landing spot for undifferentiated traffic.
+ * Every customer-facing department gets this view — "Chat with anyone,
+ * before or after they have a ticket" is the point of this page, so a
+ * visitor without a ticket yet (nobody's claimed them) is visible to every
+ * department, not just Customer Care; a visitor already tied to a ticket
+ * is scoped to that ticket's actual department, since someone specific
+ * already owns it. HelpPageVisit has no direct departmentId (it's keyed by
+ * an anonymous sessionId, not a ticket), so the ticketed case is scoped by
+ * joining through ticketNumber -> Ticket.departmentId.
  */
 export async function getLiveActivitySnapshot(): Promise<LiveActivitySnapshot> {
   const actor = await requirePermission("live_activity.view");
   if (!actor.department) return EMPTY_SNAPSHOT;
 
-  const isCareTeam = CARE_DEPARTMENT_CODES.includes(actor.department.code);
   const departmentId = actor.department.id;
 
   const now = new Date();
@@ -69,7 +63,7 @@ export async function getLiveActivitySnapshot(): Promise<LiveActivitySnapshot> {
       where: {
         channel: "CHATBOT",
         createdAt: { gte: startOfToday },
-        OR: [{ relatedTicket: { departmentId } }, ...(isCareTeam ? [{ relatedTicketId: null }] : [])],
+        OR: [{ relatedTicket: { departmentId } }, { relatedTicketId: null }],
       },
     }),
   ]);
@@ -80,7 +74,7 @@ export async function getLiveActivitySnapshot(): Promise<LiveActivitySnapshot> {
     : [];
   const ticketByNumber = new Map(tickets.map((t) => [t.ticketNumber, t]));
 
-  const scoped = candidateVisits.filter((v) => (v.ticketNumber ? ticketByNumber.get(v.ticketNumber)?.departmentId === departmentId : isCareTeam));
+  const scoped = candidateVisits.filter((v) => (v.ticketNumber ? ticketByNumber.get(v.ticketNumber)?.departmentId === departmentId : true));
 
   const visitorTimeline: LiveActivitySnapshot["visitorTimeline"] = [];
   for (let i = TIMELINE_BUCKETS - 1; i >= 0; i--) {

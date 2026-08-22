@@ -7,6 +7,7 @@ import { classifyTicket } from "@/lib/ai/classify-ticket";
 import { TICKET_CATEGORIES } from "@/lib/validation/ticket";
 import { chatCreateTicketAction, chatTrackTicketAction } from "@/app/help/actions";
 import { isWithinSupportHours, closedHoursMessage } from "@/lib/support-hours";
+import { OPEN_LIVE_CHAT_EVENT } from "@/lib/live-chat-events";
 
 type Stage =
   | "greeting"
@@ -63,7 +64,7 @@ export function HelpChatbot({ supportEmail }: { supportEmail: string }) {
       if (!isWithinSupportHours()) {
         bot(closedHoursMessage());
       }
-      bot("Hi! I'm the Masterways virtual assistant. How can I help?", ["File a complaint", "Track my request", "Contact & hours"]);
+      bot("Hi! I'm the Masterways virtual assistant. How can I help?", ["File a complaint", "Track my request", "Chat with our team", "Contact & hours"]);
       setStage("greeting");
     }
     setOpen(next);
@@ -113,6 +114,7 @@ export function HelpChatbot({ supportEmail }: { supportEmail: string }) {
           bot(`You can reach us at ${supportEmail}. Response time depends on priority — you'll get an estimate once your request is logged.`, [
             "File a complaint",
             "Track my request",
+            "Chat with our team",
           ]);
           setStage("idle");
           return;
@@ -171,6 +173,7 @@ export function HelpChatbot({ supportEmail }: { supportEmail: string }) {
           bot(`Done! I've logged this as ${result.ticketNumber}.${eta} You can track it anytime here or on the Track tab.`, [
             "File another complaint",
             "Track a request",
+            "Chat with our team",
           ]);
         } else {
           bot(`Sorry, something went wrong: ${result.error}. Please try the form above instead.`);
@@ -244,8 +247,15 @@ export function HelpChatbot({ supportEmail }: { supportEmail: string }) {
       bot(`You can reach us at ${supportEmail}. Response time depends on priority — you'll get an estimate once your request is logged.`, [
         "File a complaint",
         "Track my request",
+        "Chat with our team",
       ]);
       setStage("idle");
+      return;
+    }
+    if (reply === "Chat with our team") {
+      user(reply);
+      window.dispatchEvent(new CustomEvent(OPEN_LIVE_CHAT_EVENT));
+      setOpen(false);
       return;
     }
     await handleSend(reply);
